@@ -101,7 +101,7 @@
 | `WECHAT_WEBHOOK_URL` | 企業微信 Webhook URL | 可選 |
 | `FEISHU_WEBHOOK_URL` | 飛書 Webhook URL | 可選 |
 | `PUSHPLUS_TOKEN` | PushPlus Token（[獲取地址](https://www.pushplus.plus)，國內推送服務） | 可選 |
-| `SERVERCHAN3_SENDKEY` | Server酱³ Sendkey（[獲取地址](https://sc3.ft07.com/)，手機軟體推播服務） | 可选 |
+| `SERVERCHAN3_SENDKEY` | Server酱³ Sendkey（[獲取地址](https://sc3.ft07.com/)，手機軟體推播服務） | 可選 |
 | `CUSTOM_WEBHOOK_URLS` | 自定義 Webhook（支持釘釘等，多個用逗號分隔） | 可選 |
 | `CUSTOM_WEBHOOK_BEARER_TOKEN` | 自定義 Webhook 的 Bearer Token（用於需要認證的 Webhook） | 可選 |
 | `SINGLE_STOCK_NOTIFY` | 單股推送模式：設為 `true` 則每分析完一隻股票立即推送 | 可選 |
@@ -294,7 +294,7 @@ daily_stock_analysis/
 ## License
 [MIT License](../LICENSE) © 2026 ZhuLinsen
 
-如果你在項目中使用或基於本项目进行二次开发，
+如果你在項目中使用或基於本項目進行二次開發，
 非常歡迎在 README 或文檔中註明來源並附上本倉庫鏈接。
 這將有助於項目的持續維護和社區發展。
 

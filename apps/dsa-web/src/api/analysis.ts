@@ -17,12 +17,15 @@ export const analysisApi = {
    * @returns 同步模式返回 AnalysisResult，异步模式返回 TaskAccepted（需检查 status code）
    */
   analyze: async (data: AnalysisRequest): Promise<AnalysisResult> => {
-    const requestData = {
+    const requestData: Record<string, unknown> = {
       stock_code: data.stockCode,
       report_type: data.reportType || 'detailed',
       force_refresh: data.forceRefresh || false,
       async_mode: data.asyncMode || false,
     };
+    if (data.modelName) {
+      requestData.model_name = data.modelName;
+    }
 
     const response = await apiClient.post<Record<string, unknown>>(
       '/api/v1/analysis/analyze',
@@ -46,12 +49,15 @@ export const analysisApi = {
    * @returns 任务接受响应或抛出 409 错误
    */
   analyzeAsync: async (data: AnalysisRequest): Promise<{ taskId: string; status: string; message?: string }> => {
-    const requestData = {
+    const requestData: Record<string, unknown> = {
       stock_code: data.stockCode,
       report_type: data.reportType || 'detailed',
       force_refresh: data.forceRefresh || false,
       async_mode: true,
     };
+    if (data.modelName) {
+      requestData.model_name = data.modelName;
+    }
 
     const response = await apiClient.post<Record<string, unknown>>(
       '/api/v1/analysis/analyze',

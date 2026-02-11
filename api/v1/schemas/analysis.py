@@ -50,6 +50,10 @@ class AnalyzeRequest(BaseModel):
         False,
         description="是否使用异步模式"
     )
+    model_name: Optional[str] = Field(
+        None,
+        description="AI provider key (e.g. 'gemini', 'openai', 'qwen', 'zhipu'). Empty = auto."
+    )
     
     class Config:
         json_schema_extra = {
@@ -57,7 +61,8 @@ class AnalyzeRequest(BaseModel):
                 "stock_code": "600519",
                 "report_type": "detailed",
                 "force_refresh": False,
-                "async_mode": False
+                "async_mode": False,
+                "model_name": "openai"
             }
         }
 
@@ -159,6 +164,7 @@ class TaskInfo(BaseModel):
     progress: int = Field(0, description="进度百分比 (0-100)", ge=0, le=100)
     message: Optional[str] = Field(None, description="状态消息")
     report_type: str = Field("detailed", description="报告类型")
+    model_name: Optional[str] = Field(None, description="AI 模型 provider")
     created_at: str = Field(..., description="创建时间")
     started_at: Optional[str] = Field(None, description="开始执行时间")
     completed_at: Optional[str] = Field(None, description="完成时间")

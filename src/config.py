@@ -10,11 +10,41 @@ A股自选股智能分析系统 - 配置管理模块
 3. 提供类型安全的配置访问接口
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import List, Optional
 from dotenv import load_dotenv, dotenv_values
 from dataclasses import dataclass, field
+
+_config_logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ProviderConfig:
+    """
+    Configuration for a single AI model provider.
+
+    Supports two provider types:
+    - "gemini": Google Gemini native API
+    - "openai_compatible": Any OpenAI-compatible API (DeepSeek, Qwen, Zhipu, Groq, etc.)
+    """
+    key: str                        # Unique provider key, e.g., "gemini", "openai", "qwen"
+    display_name: str               # Human-readable name, e.g., "Gemini", "通义千问"
+    provider_type: str              # "gemini" or "openai_compatible"
+    api_key: str                    # API key
+    base_url: Optional[str] = None  # Base URL (required for openai_compatible)
+    model: str = ""                 # Default model name
+    temperature: float = 0.7        # Temperature parameter
+
+    def to_dict(self) -> dict:
+        """Return public info (no api_key) for API responses."""
+        return {
+            "key": self.key,
+            "display_name": self.display_name,
+            "provider_type": self.provider_type,
+            "model": self.model,
+        }
 
 
 def setup_env():
@@ -225,6 +255,9 @@ class Config:
     # Discord 机器人扩展配置
     discord_bot_status: str = "A股智能分析 | /help"  # 机器人状态信息
     
+    # === AI Provider Registry ===
+    providers: List[ProviderConfig] = field(default_factory=list)
+
     # 单例实例存储
     _instance: Optional['Config'] = None
     
@@ -242,6 +275,17 @@ class Config:
             cls._instance = cls._load_from_env()
         return cls._instance
     
+    def get_provider(self, key: str) -> Optional[ProviderConfig]:
+        """Look up a provider by its unique key."""
+        for p in self.providers:
+            if p.key == key:
+                return p
+        return None
+
+    def get_available_providers(self) -> List[ProviderConfig]:
+        """Return all providers that have a valid API key configured."""
+        return [p for p in self.providers if p.api_key]
+
     @classmethod
     def _load_from_env(cls) -> 'Config':
         """
@@ -332,6 +376,81 @@ class Config:
             # 未显式配置时，根据消息类型选择默认字节数
             wechat_max_bytes = 2048 if wechat_msg_type_lower == 'text' else 4000
         
+        # ============================
+        # Build AI provider registry
+        # ============================
+        providers: List[ProviderConfig] = []
+
+        # 1) Legacy OpenAI config → provider key "openai" (default / first)
+        _openai_key = os.getenv('OPENAI_API_KEY', '')
+        if _openai_key and not _openai_key.startswith('your_') and len(_openai_key) > 10:
+            _openai_base = os.getenv('OPENAI_BASE_URL', '')
+            # Auto-detect display name from base_url
+            _openai_display = "OpenAI"
+            if 'deepseek' in _openai_base.lower():
+                _openai_display = "DeepSeek"
+            providers.append(ProviderConfig(
+                key="openai",
+                display_name=_openai_display,
+                provider_type="openai_compatible",
+                api_key=_openai_key,
+                base_url=_openai_base if _openai_base.startswith('http') else None,
+                model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
+                temperature=float(os.getenv('OPENAI_TEMPERATURE', '0.7')),
+            ))
+
+        # 2) Legacy Gemini config → provider key "gemini"
+        _gemini_key = os.getenv('GEMINI_API_KEY', '')
+        if _gemini_key and not _gemini_key.startswith('your_') and len(_gemini_key) > 10:
+            providers.append(ProviderConfig(
+                key="gemini",
+                display_name="Gemini",
+                provider_type="gemini",
+                api_key=_gemini_key,
+                model=os.getenv('GEMINI_MODEL', 'gemini-3-flash-preview'),
+                temperature=float(os.getenv('GEMINI_TEMPERATURE', '0.7')),
+            ))
+
+        # 3) Scan PROVIDER_{KEY}_API_KEY env vars for additional providers
+        _seen_keys: set = set()
+        for env_name in sorted(os.environ.keys()):
+            if not env_name.startswith('PROVIDER_') or not env_name.endswith('_API_KEY'):
+                continue
+            # Extract key: PROVIDER_QWEN_API_KEY → "QWEN"
+            mid_part = env_name[len('PROVIDER_'):-len('_API_KEY')]
+            if not mid_part:
+                continue
+            pkey = mid_part.lower()
+            if pkey in _seen_keys:
+                continue
+            _seen_keys.add(pkey)
+
+            p_api_key = os.getenv(env_name, '').strip()
+            if not p_api_key or p_api_key.startswith('your_') or len(p_api_key) < 10:
+                continue
+
+            prefix = f'PROVIDER_{mid_part}_'
+            p_base_url = os.getenv(f'{prefix}BASE_URL', '').strip()
+            p_model = os.getenv(f'{prefix}MODEL', '').strip()
+            p_display = os.getenv(f'{prefix}DISPLAY_NAME', pkey.capitalize()).strip()
+            p_temp = float(os.getenv(f'{prefix}TEMPERATURE', '0.7'))
+
+            providers.append(ProviderConfig(
+                key=pkey,
+                display_name=p_display,
+                provider_type="openai_compatible",
+                api_key=p_api_key,
+                base_url=p_base_url if p_base_url.startswith('http') else None,
+                model=p_model,
+                temperature=p_temp,
+            ))
+
+        if providers:
+            _config_logger.info(
+                f"Loaded {len(providers)} AI provider(s): "
+                + ", ".join(f"{p.key}({p.display_name})" for p in providers)
+            )
+
         return cls(
             stock_list=stock_list,
             feishu_app_id=os.getenv('FEISHU_APP_ID'),
@@ -431,7 +550,8 @@ class Config:
             # - tushare: Tushare Pro，需要2000积分，数据全面
             realtime_source_priority=cls._resolve_realtime_source_priority(),
             realtime_cache_ttl=int(os.getenv('REALTIME_CACHE_TTL', '600')),
-            circuit_breaker_cooldown=int(os.getenv('CIRCUIT_BREAKER_COOLDOWN', '300'))
+            circuit_breaker_cooldown=int(os.getenv('CIRCUIT_BREAKER_COOLDOWN', '300')),
+            providers=providers,
         )
     
     @classmethod

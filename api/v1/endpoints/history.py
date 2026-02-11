@@ -88,6 +88,7 @@ def get_history_list(
                 stock_code=item.get("stock_code", ""),
                 stock_name=item.get("stock_name"),
                 report_type=item.get("report_type"),
+                model_name=item.get("model_name"),
                 sentiment_score=item.get("sentiment_score"),
                 operation_advice=item.get("operation_advice"),
                 created_at=item.get("created_at")
@@ -181,6 +182,7 @@ def get_history_detail(
             stock_code=result.get("stock_code", ""),
             stock_name=result.get("stock_name"),
             report_type=result.get("report_type"),
+            model_name=result.get("model_name"),
             created_at=result.get("created_at"),
             current_price=current_price,
             change_pct=change_pct
@@ -194,11 +196,37 @@ def get_history_detail(
             sentiment_label=result.get("sentiment_label")
         )
         
+        # Extract sniper_points: prefer DB Float columns, fall back to raw_result text
+        ideal_buy = result.get("ideal_buy")
+        secondary_buy = result.get("secondary_buy")
+        stop_loss_val = result.get("stop_loss")
+        take_profit_val = result.get("take_profit")
+
+        # If Float columns are all None, extract from raw_result JSON (full text)
+        raw_result_data = result.get("raw_result")
+        if raw_result_data and ideal_buy is None and secondary_buy is None:
+            dashboard = {}
+            if isinstance(raw_result_data, dict):
+                dashboard = raw_result_data.get("dashboard", {})
+            elif isinstance(raw_result_data, str):
+                try:
+                    import json as _json
+                    dashboard = _json.loads(raw_result_data).get("dashboard", {})
+                except Exception:
+                    pass
+            sp = dashboard.get("battle_plan", {}).get("sniper_points", {})
+            if sp:
+                ideal_buy = sp.get("ideal_buy") or ideal_buy
+                secondary_buy = sp.get("secondary_buy") or secondary_buy
+                stop_loss_val = sp.get("stop_loss") or stop_loss_val
+                take_profit_val = sp.get("take_profit") or take_profit_val
+
+        # Convert Float to string for display (frontend expects text)
         strategy = ReportStrategy(
-            ideal_buy=result.get("ideal_buy"),
-            secondary_buy=result.get("secondary_buy"),
-            stop_loss=result.get("stop_loss"),
-            take_profit=result.get("take_profit")
+            ideal_buy=str(ideal_buy) if ideal_buy is not None else None,
+            secondary_buy=str(secondary_buy) if secondary_buy is not None else None,
+            stop_loss=str(stop_loss_val) if stop_loss_val is not None else None,
+            take_profit=str(take_profit_val) if take_profit_val is not None else None,
         )
         
         details = ReportDetails(

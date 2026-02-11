@@ -1,0 +1,169 @@
+# Render.com Blueprint – Daily Stock Analysis
+# Deploy: https://render.com/deploy?repo=https://github.com/ZhuLinsen/daily_stock_analysis
+
+services:
+  - type: web
+    name: daily-stock-analysis
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    plan: free
+    startCommand: "python main.py --serve-only --host 0.0.0.0 --port 10000"
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # ==============================================
+      # Server
+      # ==============================================
+      - key: API_HOST
+        value: "0.0.0.0"
+      - key: API_PORT
+        value: "10000"
+      - key: DATABASE_PATH
+        value: "/app/data/stock_analysis.db"
+      - key: LOG_DIR
+        value: "/app/logs"
+      - key: LOG_LEVEL
+        value: "INFO"
+
+      # ==============================================
+      # Default stock list (comma-separated)
+      # ==============================================
+      - key: STOCK_LIST
+        value: "600519,000001,300750"
+
+      # ==============================================
+      # AI Providers – fill API keys in Render dashboard
+      # At least ONE provider is required
+      # ==============================================
+
+      # --- Google Gemini (free tier available) ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-2.5-flash"
+      - key: GEMINI_MODEL_FALLBACK
+        value: "gemini-2.0-flash"
+      - key: GEMINI_TEMPERATURE
+        value: "0.7"
+
+      # --- DeepSeek (via OpenAI-compatible) ---
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: "https://api.deepseek.com/v1"
+      - key: OPENAI_MODEL
+        value: "deepseek-chat"
+
+      # --- Qwen / 通义千问 ---
+      - key: PROVIDER_QWEN_API_KEY
+        sync: false
+      - key: PROVIDER_QWEN_BASE_URL
+        value: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      - key: PROVIDER_QWEN_MODEL
+        value: "qwen-turbo"
+      - key: PROVIDER_QWEN_DISPLAY_NAME
+        value: "通义千问"
+
+      # --- Zhipu GLM / 智谱 ---
+      - key: PROVIDER_ZHIPU_API_KEY
+        sync: false
+      - key: PROVIDER_ZHIPU_BASE_URL
+        value: "https://open.bigmodel.cn/api/paas/v4"
+      - key: PROVIDER_ZHIPU_MODEL
+        value: "glm-4-flash"
+      - key: PROVIDER_ZHIPU_DISPLAY_NAME
+        value: "智谱GLM"
+
+      # --- Volcengine / 火山引擎 (Doubao) ---
+      - key: PROVIDER_VOLCENGINE_API_KEY
+        sync: false
+      - key: PROVIDER_VOLCENGINE_BASE_URL
+        value: "https://ark.cn-beijing.volces.com/api/v3"
+      - key: PROVIDER_VOLCENGINE_MODEL
+        value: "doubao-1-5-pro-32k-250115"
+      - key: PROVIDER_VOLCENGINE_DISPLAY_NAME
+        value: "火山引擎"
+
+      # --- Groq (free tier, fast inference) ---
+      - key: PROVIDER_GROQ_API_KEY
+        sync: false
+      - key: PROVIDER_GROQ_BASE_URL
+        value: "https://api.groq.com/openai/v1"
+      - key: PROVIDER_GROQ_MODEL
+        value: "llama-3.3-70b-versatile"
+      - key: PROVIDER_GROQ_DISPLAY_NAME
+        value: "Groq"
+
+      # --- SiliconFlow / 硅基流动 ---
+      - key: PROVIDER_SILICONFLOW_API_KEY
+        sync: false
+      - key: PROVIDER_SILICONFLOW_BASE_URL
+        value: "https://api.siliconflow.cn/v1"
+      - key: PROVIDER_SILICONFLOW_MODEL
+        value: "deepseek-ai/DeepSeek-V3"
+      - key: PROVIDER_SILICONFLOW_DISPLAY_NAME
+        value: "硅基流动"
+
+      # ==============================================
+      # Search Engines (for news, at least one recommended)
+      # Multiple keys comma-separated for load balancing
+      # ==============================================
+      - key: TAVILY_API_KEYS
+        sync: false
+      - key: BOCHA_API_KEYS
+        sync: false
+      - key: BRAVE_API_KEYS
+        sync: false
+      - key: SERPAPI_API_KEYS
+        sync: false
+
+      # ==============================================
+      # Notifications (optional, fill the ones you need)
+      # ==============================================
+
+      # WeChat Work webhook
+      - key: WECHAT_WEBHOOK_URL
+        sync: false
+      # Feishu / Lark webhook
+      - key: FEISHU_WEBHOOK_URL
+        sync: false
+      # Telegram
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      # Email (SMTP)
+      - key: EMAIL_SENDER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_RECEIVERS
+        sync: false
+      # PushPlus (one-click push to WeChat)
+      - key: PUSHPLUS_TOKEN
+        sync: false
+      # ServerChan v3
+      - key: SERVERCHAN3_SENDKEY
+        sync: false
+      # Discord
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+
+      # ==============================================
+      # Data Sources (optional)
+      # ==============================================
+      - key: TUSHARE_TOKEN
+        sync: false
+
+      # ==============================================
+      # Advanced Settings
+      # ==============================================
+      - key: REPORT_TYPE
+        value: "full"
+      - key: MAX_WORKERS
+        value: "3"
+      - key: MARKET_REVIEW_ENABLED
+        value: "true"
+      - key: BACKTEST_ENABLED
+        value: "true"

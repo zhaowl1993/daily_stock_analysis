@@ -53,9 +53,17 @@ class TaskInfo:
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     report_type: str = "detailed"
+    model_name: Optional[str] = None  # AI provider: "openai" / "gemini" / None (auto)
     created_at: datetime = field(default_factory=datetime.now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
+    @property
+    def dedup_key(self) -> str:
+        """Dedup key: stock_code[:model_name]"""
+        if self.model_name:
+            return f"{self.stock_code}:{self.model_name}"
+        return self.stock_code
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典，用于 API 响应"""
@@ -67,6 +75,7 @@ class TaskInfo:
             "progress": self.progress,
             "message": self.message,
             "report_type": self.report_type,
+            "model_name": self.model_name,
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
@@ -85,6 +94,7 @@ class TaskInfo:
             result=self.result,
             error=self.error,
             report_type=self.report_type,
+            model_name=self.model_name,
             created_at=self.created_at,
             started_at=self.started_at,
             completed_at=self.completed_at,
@@ -167,31 +177,35 @@ class AnalysisTaskQueue:
     
     # ========== 任务提交与查询 ==========
     
-    def is_analyzing(self, stock_code: str) -> bool:
+    def is_analyzing(self, stock_code: str, model_name: Optional[str] = None) -> bool:
         """
         检查股票是否正在分析中
-        
+
         Args:
             stock_code: 股票代码
-            
+            model_name: 模型名称（可选）
+
         Returns:
             True 表示正在分析中
         """
+        dedup_key = f"{stock_code}:{model_name}" if model_name else stock_code
         with self._data_lock:
-            return stock_code in self._analyzing_stocks
-    
-    def get_analyzing_task_id(self, stock_code: str) -> Optional[str]:
+            return dedup_key in self._analyzing_stocks
+
+    def get_analyzing_task_id(self, stock_code: str, model_name: Optional[str] = None) -> Optional[str]:
         """
         获取正在分析该股票的任务 ID
-        
+
         Args:
             stock_code: 股票代码
-            
+            model_name: 模型名称（可选）
+
         Returns:
             任务 ID，如果没有则返回 None
         """
+        dedup_key = f"{stock_code}:{model_name}" if model_name else stock_code
         with self._data_lock:
-            return self._analyzing_stocks.get(stock_code)
+            return self._analyzing_stocks.get(dedup_key)
     
     def submit_task(
         self,
@@ -199,6 +213,7 @@ class AnalysisTaskQueue:
         stock_name: Optional[str] = None,
         report_type: str = "detailed",
         force_refresh: bool = False,
+        model_name: Optional[str] = None,
     ) -> TaskInfo:
         """
         提交分析任务
@@ -208,6 +223,7 @@ class AnalysisTaskQueue:
             stock_name: 股票名称（可选）
             report_type: 报告类型
             force_refresh: 是否强制刷新
+            model_name: AI provider ("openai" / "gemini" / None)
             
         Returns:
             TaskInfo: 任务信息
@@ -215,10 +231,13 @@ class AnalysisTaskQueue:
         Raises:
             DuplicateTaskError: 股票正在分析中
         """
+        # Build dedup key: stock_code or stock_code:model_name
+        dedup_key = f"{stock_code}:{model_name}" if model_name else stock_code
+
         with self._data_lock:
-            # 检查重复
-            if stock_code in self._analyzing_stocks:
-                existing_task_id = self._analyzing_stocks[stock_code]
+            # Check duplicate by dedup_key
+            if dedup_key in self._analyzing_stocks:
+                existing_task_id = self._analyzing_stocks[dedup_key]
                 raise DuplicateTaskError(stock_code, existing_task_id)
             
             # 创建任务
@@ -230,11 +249,12 @@ class AnalysisTaskQueue:
                 status=TaskStatus.PENDING,
                 message="任务已加入队列",
                 report_type=report_type,
+                model_name=model_name,
             )
             
-            # 注册任务
+            # 注册任务 (use dedup_key for analyzing_stocks)
             self._tasks[task_id] = task_info
-            self._analyzing_stocks[stock_code] = task_id
+            self._analyzing_stocks[dedup_key] = task_id
             
             # 提交到线程池执行
             future = self.executor.submit(
@@ -243,10 +263,11 @@ class AnalysisTaskQueue:
                 stock_code,
                 report_type,
                 force_refresh,
+                model_name,
             )
             self._futures[task_id] = future
             
-            logger.info(f"[TaskQueue] 任务已提交: {stock_code} -> {task_id}")
+            logger.info(f"[TaskQueue] 任务已提交: {stock_code} (model={model_name}) -> {task_id}")
         
         # 广播任务创建事件（锁外执行避免死锁）
         self._broadcast_event("task_created", task_info.to_dict())
@@ -325,6 +346,7 @@ class AnalysisTaskQueue:
         stock_code: str,
         report_type: str,
         force_refresh: bool,
+        model_name: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         执行分析任务（在线程池中运行）
@@ -334,6 +356,7 @@ class AnalysisTaskQueue:
             stock_code: 股票代码
             report_type: 报告类型
             force_refresh: 是否强制刷新
+            model_name: AI provider ("openai" / "gemini" / None)
             
         Returns:
             分析结果字典
@@ -361,6 +384,7 @@ class AnalysisTaskQueue:
                 report_type=report_type,
                 force_refresh=force_refresh,
                 query_id=task_id,
+                model_name=model_name,
             )
             
             if result:
@@ -375,9 +399,10 @@ class AnalysisTaskQueue:
                         task.message = "分析完成"
                         task.stock_name = result.get("stock_name", task.stock_name)
                         
-                        # 从分析中集合移除
-                        if task.stock_code in self._analyzing_stocks:
-                            del self._analyzing_stocks[task.stock_code]
+                        # Remove from analyzing set by dedup_key
+                        dk = task.dedup_key
+                        if dk in self._analyzing_stocks:
+                            del self._analyzing_stocks[dk]
                 
                 self._broadcast_event("task_completed", task.to_dict())
                 logger.info(f"[TaskQueue] 任务完成: {task_id} ({stock_code})")
@@ -402,9 +427,10 @@ class AnalysisTaskQueue:
                     task.error = error_msg[:200]  # 限制错误信息长度
                     task.message = f"分析失败: {error_msg[:50]}"
                     
-                    # 从分析中集合移除
-                    if task.stock_code in self._analyzing_stocks:
-                        del self._analyzing_stocks[task.stock_code]
+                    # Remove from analyzing set by dedup_key
+                    dk = task.dedup_key
+                    if dk in self._analyzing_stocks:
+                        del self._analyzing_stocks[dk]
             
             self._broadcast_event("task_failed", task.to_dict())
             

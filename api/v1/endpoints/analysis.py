@@ -119,17 +119,20 @@ def trigger_analysis(
     stock_codes = list(dict.fromkeys(stock_codes))
     stock_code = stock_codes[0]  # 当前只处理第一个
 
+    model_name = getattr(request, 'model_name', None)
+
     # 异步模式：使用任务队列
     if request.async_mode:
-        return _handle_async_analysis(stock_code, request)
+        return _handle_async_analysis(stock_code, request, model_name=model_name)
 
     # 同步模式：直接执行分析
-    return _handle_sync_analysis(stock_code, request)
+    return _handle_sync_analysis(stock_code, request, model_name=model_name)
 
 
 def _handle_async_analysis(
     stock_code: str,
-    request: AnalyzeRequest
+    request: AnalyzeRequest,
+    model_name: Optional[str] = None,
 ) -> JSONResponse:
     """
     处理异步分析请求
@@ -146,6 +149,7 @@ def _handle_async_analysis(
             stock_name=None,  # 名称在分析过程中获取
             report_type=request.report_type,
             force_refresh=request.force_refresh,
+            model_name=model_name,
         )
         
         # 返回 202 Accepted
@@ -175,7 +179,8 @@ def _handle_async_analysis(
 
 def _handle_sync_analysis(
     stock_code: str,
-    request: AnalyzeRequest
+    request: AnalyzeRequest,
+    model_name: Optional[str] = None,
 ) -> AnalysisResultResponse:
     """
     处理同步分析请求
@@ -193,7 +198,8 @@ def _handle_sync_analysis(
             stock_code=stock_code,
             report_type=request.report_type,
             force_refresh=request.force_refresh,
-            query_id=query_id
+            query_id=query_id,
+            model_name=model_name,
         )
 
         if result is None:
@@ -285,6 +291,7 @@ def get_task_list(
             progress=t.progress,
             message=t.message,
             report_type=t.report_type,
+            model_name=t.model_name,
             created_at=t.created_at.isoformat(),
             started_at=t.started_at.isoformat() if t.started_at else None,
             completed_at=t.completed_at.isoformat() if t.completed_at else None,
@@ -450,12 +457,7 @@ def get_analysis_status(task_id: str) -> TaskStatus:
                     trend_prediction=record.trend_prediction,
                     analysis_summary=record.analysis_summary,
                 ),
-                strategy=ReportStrategy(
-                    ideal_buy=str(getattr(record, 'ideal_buy', None)) if getattr(record, 'ideal_buy', None) is not None else None,
-                    secondary_buy=str(getattr(record, 'secondary_buy', None)) if getattr(record, 'secondary_buy', None) is not None else None,
-                    stop_loss=str(getattr(record, 'stop_loss', None)) if getattr(record, 'stop_loss', None) is not None else None,
-                    take_profit=str(getattr(record, 'take_profit', None)) if getattr(record, 'take_profit', None) is not None else None,
-                ),
+                strategy=_extract_strategy_from_record(record),
             ).model_dump()
             return TaskStatus(
                 task_id=task_id,
@@ -495,6 +497,42 @@ def get_analysis_status(task_id: str) -> TaskStatus:
 # 辅助函数
 # ============================================================
 
+def _extract_strategy_from_record(record) -> ReportStrategy:
+    """
+    Extract strategy (sniper_points) from a DB AnalysisHistory record.
+
+    Prefers the Float columns; when they are NULL, falls back to
+    extracting full text descriptions from the raw_result JSON.
+    """
+    ideal_buy = getattr(record, 'ideal_buy', None)
+    secondary_buy = getattr(record, 'secondary_buy', None)
+    stop_loss_val = getattr(record, 'stop_loss', None)
+    take_profit_val = getattr(record, 'take_profit', None)
+
+    # Fall back to raw_result JSON when Float columns are NULL
+    if ideal_buy is None and secondary_buy is None:
+        raw_text = getattr(record, 'raw_result', None)
+        if raw_text:
+            try:
+                import json as _json
+                raw_data = _json.loads(raw_text) if isinstance(raw_text, str) else raw_text
+                sp = raw_data.get("dashboard", {}).get("battle_plan", {}).get("sniper_points", {})
+                if sp:
+                    ideal_buy = sp.get("ideal_buy") or ideal_buy
+                    secondary_buy = sp.get("secondary_buy") or secondary_buy
+                    stop_loss_val = sp.get("stop_loss") or stop_loss_val
+                    take_profit_val = sp.get("take_profit") or take_profit_val
+            except Exception:
+                pass
+
+    return ReportStrategy(
+        ideal_buy=str(ideal_buy) if ideal_buy is not None else None,
+        secondary_buy=str(secondary_buy) if secondary_buy is not None else None,
+        stop_loss=str(stop_loss_val) if stop_loss_val is not None else None,
+        take_profit=str(take_profit_val) if take_profit_val is not None else None,
+    )
+
+
 def _build_analysis_report(
         report_data: Dict[str, Any],
         query_id: str,
@@ -523,6 +561,7 @@ def _build_analysis_report(
         stock_code=meta_data.get("stock_code", stock_code),
         stock_name=meta_data.get("stock_name", stock_name),
         report_type=meta_data.get("report_type", "detailed"),
+        model_name=meta_data.get("model_name"),
         created_at=meta_data.get("created_at", datetime.now().isoformat()),
         current_price=meta_data.get("current_price"),
         change_pct=meta_data.get("change_pct"),

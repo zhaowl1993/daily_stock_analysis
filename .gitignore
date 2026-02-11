@@ -73,5 +73,8 @@ verify_*.py
 .claude/
 CLAUDE.md
 
+# PyInstaller build artifacts
+*.spec
+
 # ignore static files
 static/

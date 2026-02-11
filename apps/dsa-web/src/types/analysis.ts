@@ -10,6 +10,15 @@ export interface AnalysisRequest {
   reportType?: 'simple' | 'detailed';
   forceRefresh?: boolean;
   asyncMode?: boolean;
+  modelName?: string;
+}
+
+/** AI provider info returned by GET /api/v1/providers */
+export interface ProviderInfo {
+  key: string;
+  displayName: string;
+  providerType: string;
+  model?: string;
 }
 
 // ============ 报告类型 ============
@@ -20,6 +29,7 @@ export interface ReportMeta {
   stockCode: string;
   stockName: string;
   reportType: 'simple' | 'detailed';
+  modelName?: string;
   createdAt: string;
   currentPrice?: number;
   changePct?: number;
@@ -96,6 +106,7 @@ export interface TaskInfo {
   progress: number;
   message?: string;
   reportType: string;
+  modelName?: string;
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
@@ -126,6 +137,7 @@ export interface HistoryItem {
   stockCode: string;
   stockName?: string;
   reportType?: string;
+  modelName?: string;
   sentimentScore?: number;
   operationAdvice?: string;
   createdAt: string;

@@ -21,6 +21,7 @@ class HistoryItem(BaseModel):
     stock_code: str = Field(..., description="股票代码")
     stock_name: Optional[str] = Field(None, description="股票名称")
     report_type: Optional[str] = Field(None, description="报告类型")
+    model_name: Optional[str] = Field(None, description="AI 模型名称")
     sentiment_score: Optional[int] = Field(
         None, 
         description="情绪评分 (0-100)",
@@ -102,6 +103,7 @@ class ReportMeta(BaseModel):
     stock_code: str = Field(..., description="股票代码")
     stock_name: Optional[str] = Field(None, description="股票名称")
     report_type: Optional[str] = Field(None, description="报告类型")
+    model_name: Optional[str] = Field(None, description="AI 模型名称")
     created_at: Optional[str] = Field(None, description="创建时间")
     current_price: Optional[float] = Field(None, description="分析时股价")
     change_pct: Optional[float] = Field(None, description="分析时涨跌幅(%)")

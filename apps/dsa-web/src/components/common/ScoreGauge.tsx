@@ -64,8 +64,8 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
   // 尺寸配置
   const sizeConfig = {
     sm: { width: 100, stroke: 8, fontSize: 'text-2xl', labelSize: 'text-xs', gap: 6 },
-    md: { width: 140, stroke: 10, fontSize: 'text-4xl', labelSize: 'text-sm', gap: 8 },
-    lg: { width: 180, stroke: 12, fontSize: 'text-5xl', labelSize: 'text-base', gap: 10 },
+    md: { width: 140, stroke: 10, fontSize: 'text-3xl', labelSize: 'text-xs', gap: 8 },
+    lg: { width: 170, stroke: 11, fontSize: 'text-4xl', labelSize: 'text-xs', gap: 10 },
   };
 
   const { width, stroke, fontSize, labelSize, gap } = sizeConfig[size];
@@ -125,7 +125,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
             cy={width / 2}
             r={radius}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.05)"
+            stroke="rgba(148, 163, 184, 0.06)"
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={`${arcLength} ${circumference}`}

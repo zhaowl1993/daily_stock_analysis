@@ -124,6 +124,7 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
       progress: data.progress as number,
       message: data.message as string | undefined,
       reportType: data.report_type as string,
+      modelName: data.model_name as string | undefined,
       createdAt: data.created_at as string,
       startedAt: data.started_at as string | undefined,
       completedAt: data.completed_at as string | undefined,

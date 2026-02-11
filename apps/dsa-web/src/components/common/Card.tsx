@@ -11,8 +11,7 @@ interface CardProps {
 }
 
 /**
- * 终端风格卡片组件
- * 支持渐变边框、悬浮效果
+ * Clean glass card component
  */
 export const Card: React.FC<CardProps> = ({
   title,
@@ -52,7 +51,7 @@ export const Card: React.FC<CardProps> = ({
                 <span className="label-uppercase">{subtitle}</span>
               )}
               {title && (
-                <h3 className="text-lg font-semibold text-white mt-1">
+                <h3 className="text-sm font-medium text-white mt-1">
                   {title}
                 </h3>
               )}
@@ -80,7 +79,7 @@ export const Card: React.FC<CardProps> = ({
             <span className="label-uppercase">{subtitle}</span>
           )}
           {title && (
-            <h3 className="text-lg font-semibold text-white mt-1">
+            <h3 className="text-sm font-medium text-white mt-1">
               {title}
             </h3>
           )}

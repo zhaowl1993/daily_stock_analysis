@@ -50,7 +50,7 @@ export const ReportNews: React.FC<ReportNewsProps> = ({ queryId, limit = 20 }) =
       <div className="flex items-center justify-between mb-3">
         <div className="mb-3 flex items-baseline gap-2">
           <span className="label-uppercase">NEWS FEED</span>
-          <h3 className="text-base font-semibold text-white">相关资讯</h3>
+          <h3 className="text-sm font-medium text-white">相关资讯</h3>
         </div>
         <div className="flex items-center gap-2">
           {isLoading && (
@@ -99,7 +99,7 @@ export const ReportNews: React.FC<ReportNewsProps> = ({ queryId, limit = 20 }) =
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm text-white font-medium leading-snug text-left">
+                  <p className="text-[13px] text-white font-medium leading-snug text-left">
                     {item.title}
                   </p>
                   {item.snippet && (

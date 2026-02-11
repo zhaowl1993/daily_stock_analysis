@@ -74,6 +74,7 @@ class StockAnalysisPipeline:
         self.trend_analyzer = StockTrendAnalyzer()  # 趋势分析器
         self.analyzer = GeminiAnalyzer()
         self.notifier = NotificationService(source_message=source_message)
+        self._force_provider = None  # override in create_with_provider()
         
         # 初始化搜索服务
         self.search_service = SearchService(
@@ -99,6 +100,45 @@ class StockAnalysisPipeline:
         else:
             logger.warning("搜索服务未启用（未配置 API Key）")
     
+    @classmethod
+    def create_with_provider(
+        cls,
+        force_provider: str,
+        config: Optional[Config] = None,
+        query_id: Optional[str] = None,
+        query_source: Optional[str] = None,
+        save_context_snapshot: Optional[bool] = None,
+    ) -> "StockAnalysisPipeline":
+        """
+        Create a pipeline that forces a specific AI provider.
+
+        Looks up ProviderConfig from the config registry first.
+        Falls back to legacy force_provider behavior for "openai"/"gemini".
+
+        Args:
+            force_provider: Provider key (e.g., "openai", "gemini", "qwen", "zhipu", ...)
+        """
+        pipeline = cls(
+            config=config,
+            query_id=query_id,
+            query_source=query_source,
+            save_context_snapshot=save_context_snapshot,
+        )
+        pipeline._force_provider = force_provider
+
+        # Look up ProviderConfig from the registry
+        cfg = config or get_config()
+        provider_config = cfg.get_provider(force_provider)
+
+        if provider_config:
+            # Use explicit provider config (multi-provider system)
+            pipeline.analyzer = GeminiAnalyzer(provider_config=provider_config)
+        else:
+            # Legacy fallback for "openai" / "gemini"
+            pipeline.analyzer = GeminiAnalyzer(force_provider=force_provider)
+
+        return pipeline
+
     def fetch_and_save_stock_data(
         self, 
         code: str,
@@ -167,47 +207,75 @@ class StockAnalysisPipeline:
         try:
             # 获取股票名称（优先从实时行情获取真实名称）
             stock_name = STOCK_NAME_MAP.get(code, '')
-            
-            # Step 1: 获取实时行情（量比、换手率等）- 使用统一入口，自动故障切换
+
+            # ---- Parallel I/O: fetch realtime quote, chip data, context, news concurrently ----
             realtime_quote = None
-            try:
-                realtime_quote = self.fetcher_manager.get_realtime_quote(code)
-                if realtime_quote:
-                    # 使用实时行情返回的真实股票名称
-                    if realtime_quote.name:
-                        stock_name = realtime_quote.name
-                    # 兼容不同数据源的字段（有些数据源可能没有 volume_ratio）
-                    volume_ratio = getattr(realtime_quote, 'volume_ratio', None)
-                    turnover_rate = getattr(realtime_quote, 'turnover_rate', None)
-                    logger.info(f"[{code}] {stock_name} 实时行情: 价格={realtime_quote.price}, "
-                              f"量比={volume_ratio}, 换手率={turnover_rate}% "
-                              f"(来源: {realtime_quote.source.value if hasattr(realtime_quote, 'source') else 'unknown'})")
-                else:
-                    logger.info(f"[{code}] 实时行情获取失败或已禁用，将使用历史数据进行分析")
-            except Exception as e:
-                logger.warning(f"[{code}] 获取实时行情失败: {e}")
-            
-            # 如果还是没有名称，使用代码作为名称
+            chip_data = None
+            context = None
+            news_context = None
+            intel_results = None
+
+            def _fetch_realtime():
+                try:
+                    return self.fetcher_manager.get_realtime_quote(code)
+                except Exception as e:
+                    logger.warning(f"[{code}] 获取实时行情失败: {e}")
+                    return None
+
+            def _fetch_chip():
+                try:
+                    return self.fetcher_manager.get_chip_distribution(code)
+                except Exception as e:
+                    logger.warning(f"[{code}] 获取筹码分布失败: {e}")
+                    return None
+
+            def _fetch_context():
+                return self.db.get_analysis_context(code)
+
+            def _fetch_news():
+                if not self.search_service.is_available:
+                    return None
+                logger.info(f"[{code}] 开始多维度情报搜索...")
+                return self.search_service.search_comprehensive_intel(
+                    stock_code=code,
+                    stock_name=stock_name or f'股票{code}',
+                    max_searches=5,
+                )
+
+            with ThreadPoolExecutor(max_workers=4) as io_pool:
+                fut_realtime = io_pool.submit(_fetch_realtime)
+                fut_chip = io_pool.submit(_fetch_chip)
+                fut_context = io_pool.submit(_fetch_context)
+                fut_news = io_pool.submit(_fetch_news)
+
+                realtime_quote = fut_realtime.result()
+                chip_data = fut_chip.result()
+                context = fut_context.result()
+                intel_results = fut_news.result()
+
+            # Process realtime quote results
+            if realtime_quote:
+                if realtime_quote.name:
+                    stock_name = realtime_quote.name
+                volume_ratio = getattr(realtime_quote, 'volume_ratio', None)
+                turnover_rate = getattr(realtime_quote, 'turnover_rate', None)
+                logger.info(f"[{code}] {stock_name} 实时行情: 价格={realtime_quote.price}, "
+                          f"量比={volume_ratio}, 换手率={turnover_rate}% "
+                          f"(来源: {realtime_quote.source.value if hasattr(realtime_quote, 'source') else 'unknown'})")
+            else:
+                logger.info(f"[{code}] 实时行情获取失败或已禁用，将使用历史数据进行分析")
+
             if not stock_name:
                 stock_name = f'股票{code}'
-            
-            # Step 2: 获取筹码分布 - 使用统一入口，带熔断保护
-            chip_data = None
-            try:
-                chip_data = self.fetcher_manager.get_chip_distribution(code)
-                if chip_data:
-                    logger.info(f"[{code}] 筹码分布: 获利比例={chip_data.profit_ratio:.1%}, "
-                              f"90%集中度={chip_data.concentration_90:.2%}")
-                else:
-                    logger.debug(f"[{code}] 筹码分布获取失败或已禁用")
-            except Exception as e:
-                logger.warning(f"[{code}] 获取筹码分布失败: {e}")
-            
-            # Step 3: 趋势分析（基于交易理念）
+
+            # Process chip data
+            if chip_data:
+                logger.info(f"[{code}] 筹码分布: 获利比例={chip_data.profit_ratio:.1%}, "
+                          f"90%集中度={chip_data.concentration_90:.2%}")
+
+            # Trend analysis (depends on context from DB)
             trend_result: Optional[TrendAnalysisResult] = None
             try:
-                # 获取历史数据进行趋势分析
-                context = self.db.get_analysis_context(code)
                 if context and 'raw_data' in context:
                     import pandas as pd
                     raw_data = context['raw_data']
@@ -218,48 +286,35 @@ class StockAnalysisPipeline:
                                   f"买入信号={trend_result.buy_signal.value}, 评分={trend_result.signal_score}")
             except Exception as e:
                 logger.warning(f"[{code}] 趋势分析失败: {e}")
-            
-            # Step 4: 多维度情报搜索（最新消息+风险排查+业绩预期）
-            news_context = None
-            if self.search_service.is_available:
-                logger.info(f"[{code}] 开始多维度情报搜索...")
-                
-                # 使用多维度搜索（最多5次搜索）
-                intel_results = self.search_service.search_comprehensive_intel(
-                    stock_code=code,
-                    stock_name=stock_name,
-                    max_searches=5
-                )
-                
-                # 格式化情报报告
-                if intel_results:
-                    news_context = self.search_service.format_intel_report(intel_results, stock_name)
-                    total_results = sum(
-                        len(r.results) for r in intel_results.values() if r.success
-                    )
-                    logger.info(f"[{code}] 情报搜索完成: 共 {total_results} 条结果")
-                    logger.debug(f"[{code}] 情报搜索结果:\n{news_context}")
 
-                    # 保存新闻情报到数据库（用于后续复盘与查询）
-                    try:
-                        query_context = self._build_query_context()
-                        for dim_name, response in intel_results.items():
-                            if response and response.success and response.results:
-                                self.db.save_news_intel(
-                                    code=code,
-                                    name=stock_name,
-                                    dimension=dim_name,
-                                    query=response.query,
-                                    response=response,
-                                    query_context=query_context
-                                )
-                    except Exception as e:
-                        logger.warning(f"[{code}] 保存新闻情报失败: {e}")
+            # Process news intel results
+            if intel_results:
+                news_context = self.search_service.format_intel_report(intel_results, stock_name)
+                total_results = sum(
+                    len(r.results) for r in intel_results.values() if r.success
+                )
+                logger.info(f"[{code}] 情报搜索完成: 共 {total_results} 条结果")
+                logger.debug(f"[{code}] 情报搜索结果:\n{news_context}")
+
+                # Save news intel to DB
+                try:
+                    query_context = self._build_query_context()
+                    for dim_name, response in intel_results.items():
+                        if response and response.success and response.results:
+                            self.db.save_news_intel(
+                                code=code,
+                                name=stock_name,
+                                dimension=dim_name,
+                                query=response.query,
+                                response=response,
+                                query_context=query_context,
+                            )
+                except Exception as e:
+                    logger.warning(f"[{code}] 保存新闻情报失败: {e}")
+            elif self.search_service.is_available:
+                logger.info(f"[{code}] 情报搜索返回空结果")
             else:
                 logger.info(f"[{code}] 搜索服务不可用，跳过情报搜索")
-            
-            # Step 5: 获取分析上下文（技术面数据）
-            context = self.db.get_analysis_context(code)
             
             if context is None:
                 logger.warning(f"[{code}] 无法获取历史行情数据，将仅基于新闻和实时行情分析")
@@ -285,7 +340,12 @@ class StockAnalysisPipeline:
             # Step 7: 调用 AI 分析（传入增强的上下文和新闻）
             result = self.analyzer.analyze(enhanced_context, news_context=news_context)
 
-            # Step 7.5: 填充分析时的价格信息到 result
+            # Step 7.5a: Normalize model_name to provider key ("openai"/"gemini")
+            # so frontend/history can match consistently.
+            if result and self._force_provider:
+                result.model_name = self._force_provider
+
+            # Step 7.5b: 填充分析时的价格信息到 result
             if result:
                 realtime_data = enhanced_context.get('realtime', {})
                 result.current_price = realtime_data.get('price')
@@ -381,16 +441,40 @@ class StockAnalysisPipeline:
                 'chip_status': chip_data.get_chip_status(current_price or 0),
             }
         
-        # 添加趋势分析结果
+        # 添加趋势分析结果（含 MACD / RSI / 支撑压力）
         if trend_result:
             enhanced['trend_analysis'] = {
                 'trend_status': trend_result.trend_status.value,
                 'ma_alignment': trend_result.ma_alignment,
                 'trend_strength': trend_result.trend_strength,
+                'ma5': trend_result.ma5,
+                'ma10': trend_result.ma10,
+                'ma20': trend_result.ma20,
+                'ma60': trend_result.ma60,
                 'bias_ma5': trend_result.bias_ma5,
                 'bias_ma10': trend_result.bias_ma10,
+                'bias_ma20': getattr(trend_result, 'bias_ma20', 0),
                 'volume_status': trend_result.volume_status.value,
                 'volume_trend': trend_result.volume_trend,
+                'volume_ratio_5d': trend_result.volume_ratio_5d,
+                # MACD indicators
+                'macd_dif': round(trend_result.macd_dif, 4),
+                'macd_dea': round(trend_result.macd_dea, 4),
+                'macd_bar': round(trend_result.macd_bar, 4),
+                'macd_status': trend_result.macd_status.value,
+                'macd_signal': trend_result.macd_signal,
+                # RSI indicators
+                'rsi_6': round(trend_result.rsi_6, 2),
+                'rsi_12': round(trend_result.rsi_12, 2),
+                'rsi_24': round(trend_result.rsi_24, 2),
+                'rsi_status': trend_result.rsi_status.value,
+                'rsi_signal': trend_result.rsi_signal,
+                # Support / resistance
+                'support_levels': trend_result.support_levels[:3] if trend_result.support_levels else [],
+                'resistance_levels': trend_result.resistance_levels[:3] if trend_result.resistance_levels else [],
+                'support_ma5': trend_result.support_ma5,
+                'support_ma10': trend_result.support_ma10,
+                # Signals
                 'buy_signal': trend_result.buy_signal.value,
                 'signal_score': trend_result.signal_score,
                 'signal_reasons': trend_result.signal_reasons,

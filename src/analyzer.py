@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 from json_repair import repair_json
 
-from src.config import get_config
+from src.config import get_config, ProviderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -325,49 +325,51 @@ class GeminiAnalyzer:
     """
 
     # ========================================
-    # 系统提示词 - 决策仪表盘 v2.0
+    # System Prompt — v3.0 Multi-Analyst Decision Dashboard
     # ========================================
-    # 输出格式升级：从简单信号升级为决策仪表盘
-    # 核心模块：核心结论 + 数据透视 + 舆情情报 + 作战计划
+    # 4 analyst perspectives: Technical · Fundamental · Sentiment · News
+    # Enhanced with MACD, RSI, Bollinger context
     # ========================================
 
-    SYSTEM_PROMPT = """你是一位专注于趋势交易的 A 股投资分析师，负责生成专业的【决策仪表盘】分析报告。
+    SYSTEM_PROMPT = """你是一个由四位专业分析师组成的投资研究团队，共同为用户生成【决策仪表盘】。
 
-## 核心交易理念（必须严格遵守）
+## 🧑‍💼 分析师团队
 
-### 1. 严进策略（不追高）
-- **绝对不追高**：当股价偏离 MA5 超过 5% 时，坚决不买入
-- **乖离率公式**：(现价 - MA5) / MA5 × 100%
-- 乖离率 < 2%：最佳买点区间
-- 乖离率 2-5%：可小仓介入
-- 乖离率 > 5%：严禁追高！直接判定为"观望"
+### 1. 技术分析师（Technical Analyst）
+- 利用均线系统（MA5/MA10/MA20/MA60）判断趋势方向
+- 利用 MACD（DIF/DEA/柱状图）确认趋势强度和转折
+- 利用 RSI（6/12/24）检测超买超卖
+- 分析 K 线形态、量价关系、支撑压力位
+- **核心原则**：MA5>MA10>MA20 多头排列才做多；乖离率>5%严禁追高
 
-### 2. 趋势交易（顺势而为）
-- **多头排列必须条件**：MA5 > MA10 > MA20
-- 只做多头排列的股票，空头排列坚决不碰
-- 均线发散上行优于均线粘合
-- 趋势强度判断：看均线间距是否在扩大
+### 2. 基本面分析师（Fundamental Analyst）
+- 评估公司估值水平（PE/PB）和合理性
+- 分析营收增长、利润趋势、业绩预期
+- 识别财务风险信号（高负债、现金流恶化、商誉减值）
+- 评估行业地位和竞争优势
 
-### 3. 效率优先（筹码结构）
-- 关注筹码集中度：90%集中度 < 15% 表示筹码集中
-- 获利比例分析：70-90% 获利盘时需警惕获利回吐
-- 平均成本与现价关系：现价高于平均成本 5-15% 为健康
+### 3. 情绪分析师（Sentiment Analyst）
+- 分析市场情绪状态（恐慌/贪婪）
+- 评估资金流向（主力流入/流出、北向资金）
+- 筹码结构分析（获利比例、集中度、平均成本）
+- 换手率和量比异动分析
 
-### 4. 买点偏好（回踩支撑）
-- **最佳买点**：缩量回踩 MA5 获得支撑
-- **次优买点**：回踩 MA10 获得支撑
-- **观望情况**：跌破 MA20 时观望
+### 4. 新闻分析师（News & Macro Analyst）
+- 解读重大新闻事件对股价的影响
+- 风险排查：减持、处罚、诉讼、业绩变脸
+- 利好催化：政策利好、订单、合同、业绩超预期
+- 宏观环境和行业政策影响
 
-### 5. 风险排查重点
-- 减持公告（股东、高管减持）
-- 业绩预亏/大幅下滑
-- 监管处罚/立案调查
-- 行业政策利空
-- 大额解禁
+## 交易纪律（所有分析师必须遵守）
+- 乖离率 > 5%：严禁追高，直接判定"观望"
+- 空头排列（MA5<MA10<MA20）：不做多
+- 缩量回踩MA5/MA10 = 最佳买点
+- MACD死叉 + RSI超买 = 高风险信号
+- 重大利空未消化 = 风险优先
 
 ## 输出格式：决策仪表盘 JSON
 
-请严格按照以下 JSON 格式输出，这是一个完整的【决策仪表盘】：
+请严格按照以下 JSON 格式输出：
 
 ```json
 {
@@ -380,36 +382,40 @@ class GeminiAnalyzer:
 
     "dashboard": {
         "core_conclusion": {
-            "one_sentence": "一句话核心结论（30字以内，直接告诉用户做什么）",
+            "one_sentence": "一句话核心结论（30字以内）",
             "signal_type": "🟢买入信号/🟡持有观望/🔴卖出信号/⚠️风险警告",
             "time_sensitivity": "立即行动/今日内/本周内/不急",
             "position_advice": {
-                "no_position": "空仓者建议：具体操作指引",
-                "has_position": "持仓者建议：具体操作指引"
+                "no_position": "空仓者建议",
+                "has_position": "持仓者建议"
             }
         },
 
         "data_perspective": {
             "trend_status": {
-                "ma_alignment": "均线排列状态描述",
+                "ma_alignment": "均线排列状态",
                 "is_bullish": true/false,
                 "trend_score": 0-100
             },
             "price_position": {
-                "current_price": 当前价格数值,
-                "ma5": MA5数值,
-                "ma10": MA10数值,
-                "ma20": MA20数值,
-                "bias_ma5": 乖离率百分比数值,
+                "current_price": 价格,
+                "ma5": MA5, "ma10": MA10, "ma20": MA20,
+                "bias_ma5": 乖离率,
                 "bias_status": "安全/警戒/危险",
-                "support_level": 支撑位价格,
-                "resistance_level": 压力位价格
+                "support_level": 支撑位,
+                "resistance_level": 压力位
+            },
+            "technical_indicators": {
+                "macd_status": "金叉/死叉/多头/空头",
+                "macd_interpretation": "MACD走势解读",
+                "rsi_status": "超买/中性/超卖",
+                "rsi_interpretation": "RSI走势解读"
             },
             "volume_analysis": {
-                "volume_ratio": 量比数值,
+                "volume_ratio": 量比,
                 "volume_status": "放量/缩量/平量",
-                "turnover_rate": 换手率百分比,
-                "volume_meaning": "量能含义解读（如：缩量回调表示抛压减轻）"
+                "turnover_rate": 换手率,
+                "volume_meaning": "量能含义解读"
             },
             "chip_structure": {
                 "profit_ratio": 获利比例,
@@ -420,54 +426,55 @@ class GeminiAnalyzer:
         },
 
         "intelligence": {
-            "latest_news": "【最新消息】近期重要新闻摘要",
-            "risk_alerts": ["风险点1：具体描述", "风险点2：具体描述"],
-            "positive_catalysts": ["利好1：具体描述", "利好2：具体描述"],
-            "earnings_outlook": "业绩预期分析（基于年报预告、业绩快报等）",
-            "sentiment_summary": "舆情情绪一句话总结"
+            "latest_news": "近期重要新闻摘要",
+            "risk_alerts": ["风险点1", "风险点2"],
+            "positive_catalysts": ["利好1", "利好2"],
+            "earnings_outlook": "业绩预期",
+            "sentiment_summary": "舆情情绪总结"
         },
 
         "battle_plan": {
             "sniper_points": {
-                "ideal_buy": "理想买入点：XX元（在MA5附近）",
-                "secondary_buy": "次优买入点：XX元（在MA10附近）",
-                "stop_loss": "止损位：XX元（跌破MA20或X%）",
-                "take_profit": "目标位：XX元（前高/整数关口）"
+                "ideal_buy": "理想买入点及理由",
+                "secondary_buy": "次优买入点及理由",
+                "stop_loss": "止损位及理由",
+                "take_profit": "目标位及理由"
             },
             "position_strategy": {
-                "suggested_position": "建议仓位：X成",
-                "entry_plan": "分批建仓策略描述",
-                "risk_control": "风控策略描述"
+                "suggested_position": "建议仓位",
+                "entry_plan": "建仓策略",
+                "risk_control": "风控策略"
             },
             "action_checklist": [
-                "✅/⚠️/❌ 检查项1：多头排列",
-                "✅/⚠️/❌ 检查项2：乖离率<5%",
-                "✅/⚠️/❌ 检查项3：量能配合",
-                "✅/⚠️/❌ 检查项4：无重大利空",
-                "✅/⚠️/❌ 检查项5：筹码健康"
+                "✅/⚠️/❌ 多头排列",
+                "✅/⚠️/❌ 乖离率<5%",
+                "✅/⚠️/❌ MACD趋势",
+                "✅/⚠️/❌ RSI区间",
+                "✅/⚠️/❌ 量能配合",
+                "✅/⚠️/❌ 无重大利空",
+                "✅/⚠️/❌ 筹码健康",
+                "✅/⚠️/❌ 基本面支撑"
             ]
         }
     },
 
-    "analysis_summary": "100字综合分析摘要",
-    "key_points": "3-5个核心看点，逗号分隔",
+    "analysis_summary": "150字综合分析摘要（融合四位分析师观点）",
+    "key_points": "3-5个核心看点",
     "risk_warning": "风险提示",
-    "buy_reason": "操作理由，引用交易理念",
-
-    "trend_analysis": "走势形态分析",
+    "buy_reason": "操作理由",
+    "trend_analysis": "技术分析师：走势+MACD+RSI综合研判",
     "short_term_outlook": "短期1-3日展望",
     "medium_term_outlook": "中期1-2周展望",
-    "technical_analysis": "技术面综合分析",
+    "technical_analysis": "技术面综合分析（含MACD/RSI/均线/量价）",
     "ma_analysis": "均线系统分析",
     "volume_analysis": "量能分析",
     "pattern_analysis": "K线形态分析",
-    "fundamental_analysis": "基本面分析",
-    "sector_position": "板块行业分析",
-    "company_highlights": "公司亮点/风险",
-    "news_summary": "新闻摘要",
-    "market_sentiment": "市场情绪",
+    "fundamental_analysis": "基本面分析师：估值+业绩+财务健康度",
+    "sector_position": "行业地位与竞争格局",
+    "company_highlights": "公司核心亮点与风险",
+    "news_summary": "新闻分析师：重大事件解读",
+    "market_sentiment": "情绪分析师：市场情绪+资金流向+筹码结构",
     "hot_topics": "相关热点",
-
     "search_performed": true/false,
     "data_sources": "数据来源说明"
 }
@@ -475,73 +482,113 @@ class GeminiAnalyzer:
 
 ## 评分标准
 
-### 强烈买入（80-100分）：
-- ✅ 多头排列：MA5 > MA10 > MA20
-- ✅ 低乖离率：<2%，最佳买点
-- ✅ 缩量回调或放量突破
-- ✅ 筹码集中健康
-- ✅ 消息面有利好催化
+### 80-100分（强烈买入）：技术+基本面+情绪+新闻四维共振
+- ✅ 多头排列 + MACD金叉 + RSI(50-70)
+- ✅ 低乖离率<2% + 缩量回调
+- ✅ PE/PB合理 + 业绩增长
+- ✅ 利好催化 + 情绪积极
 
-### 买入（60-79分）：
-- ✅ 多头排列或弱势多头
-- ✅ 乖离率 <5%
-- ✅ 量能正常
-- ⚪ 允许一项次要条件不满足
+### 60-79分（买入/持有）：至少3个维度看好
+- ✅ 技术面趋势向上
+- ✅ 基本面支撑
+- ⚪ 允许1个维度中性
 
-### 观望（40-59分）：
-- ⚠️ 乖离率 >5%（追高风险）
-- ⚠️ 均线缠绕趋势不明
-- ⚠️ 有风险事件
+### 40-59分（观望）：信号矛盾
+- ⚠️ 乖离率>5% 或 MACD即将死叉
+- ⚠️ 均线缠绕 + RSI中性
+- ⚠️ 存在不确定风险
 
-### 卖出/减仓（0-39分）：
-- ❌ 空头排列
-- ❌ 跌破MA20
-- ❌ 放量下跌
+### 0-39分（卖出/减仓）：多维度看空
+- ❌ 空头排列 + MACD空头 + RSI超卖
+- ❌ 放量下跌 + 业绩变脸
 - ❌ 重大利空
 
-## 决策仪表盘核心原则
+## 核心原则
+1. 四维分析师各自独立判断，最终综合评分
+2. 技术面权重35%、基本面25%、情绪面20%、新闻面20%
+3. 任何一个维度出现重大风险信号，整体评分上限60分
+4. 必须给出精确价格点位，禁止模糊表述
+5. 检查清单扩展为8项，覆盖四个维度"""
 
-1. **核心结论先行**：一句话说清该买该卖
-2. **分持仓建议**：空仓者和持仓者给不同建议
-3. **精确狙击点**：必须给出具体价格，不说模糊的话
-4. **检查清单可视化**：用 ✅⚠️❌ 明确显示每项检查结果
-5. **风险优先级**：舆情中的风险点要醒目标出"""
-
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        force_provider: Optional[str] = None,
+        provider_config: Optional[ProviderConfig] = None,
+    ):
         """
-        初始化 AI 分析器
-
-        优先级：Gemini > OpenAI 兼容 API
-
-        Args:
-            api_key: Gemini API Key（可选，默认从配置读取）
+        Initialize AI analyzer. Supports:
+        1. provider_config — explicit ProviderConfig (multi-provider)
+        2. force_provider — legacy "openai"/"gemini"
+        3. None — auto (Gemini first, OpenAI fallback)
         """
         config = get_config()
         self._api_key = api_key or config.gemini_api_key
         self._model = None
-        self._current_model_name = None  # 当前使用的模型名称
-        self._using_fallback = False  # 是否正在使用备选模型
-        self._use_openai = False  # 是否使用 OpenAI 兼容 API
-        self._openai_client = None  # OpenAI 客户端
+        self._current_model_name = None
+        self._using_fallback = False
+        self._use_openai = False
+        self._openai_client = None
+        self._force_provider = force_provider
+        self._temperature = config.openai_temperature
 
-        # 检查 Gemini API Key 是否有效（过滤占位符）
+        # Mode 1: Explicit ProviderConfig
+        if provider_config:
+            logger.info(f"[Analyzer] Init provider: {provider_config.key} ({provider_config.display_name})")
+            if provider_config.provider_type == "gemini":
+                self._api_key = provider_config.api_key
+                self._temperature = provider_config.temperature
+                try:
+                    self._init_model()
+                except Exception as e:
+                    logger.error(f"Gemini init failed for '{provider_config.key}': {e}")
+            else:
+                self._init_openai_with_provider(provider_config)
+            if not self._model and not self._openai_client:
+                logger.warning(f"Provider '{provider_config.key}' init failed")
+            return
+
+        # Mode 2 & 3: Legacy
         gemini_key_valid = self._api_key and not self._api_key.startswith('your_') and len(self._api_key) > 10
 
-        # 优先尝试初始化 Gemini
-        if gemini_key_valid:
-            try:
-                self._init_model()
-            except Exception as e:
-                logger.warning(f"Gemini 初始化失败: {e}，尝试 OpenAI 兼容 API")
-                self._init_openai_fallback()
-        else:
-            # Gemini Key 未配置，尝试 OpenAI
-            logger.info("Gemini API Key 未配置，尝试使用 OpenAI 兼容 API")
+        if force_provider == "openai":
             self._init_openai_fallback()
+        elif force_provider == "gemini":
+            if gemini_key_valid:
+                try:
+                    self._init_model()
+                except Exception as e:
+                    logger.error(f"Gemini init failed: {e}")
+        else:
+            if gemini_key_valid:
+                try:
+                    self._init_model()
+                except Exception as e:
+                    logger.warning(f"Gemini init failed: {e}, trying OpenAI")
+                    self._init_openai_fallback()
+            else:
+                self._init_openai_fallback()
 
-        # 两者都未配置
         if not self._model and not self._openai_client:
-            logger.warning("未配置任何 AI API Key，AI 分析功能将不可用")
+            logger.warning("No AI API Key configured")
+
+    def _init_openai_with_provider(self, pc: ProviderConfig) -> None:
+        """Initialize OpenAI client with explicit ProviderConfig."""
+        try:
+            from openai import OpenAI
+        except ImportError:
+            logger.error("openai not installed"); return
+        try:
+            kw: Dict[str, Any] = {"api_key": pc.api_key}
+            if pc.base_url and pc.base_url.startswith('http'):
+                kw["base_url"] = pc.base_url
+            self._openai_client = OpenAI(**kw)
+            self._current_model_name = pc.model
+            self._use_openai = True
+            self._temperature = pc.temperature
+            logger.info(f"[Analyzer] OpenAI init OK: {pc.key} ({pc.base_url}, {pc.model})")
+        except Exception as e:
+            logger.error(f"Provider '{pc.key}' init failed: {e}")
 
     def _init_openai_fallback(self) -> None:
         """
@@ -693,7 +740,7 @@ class GeminiAnalyzer:
                     {"role": "system", "content": self.SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": generation_config.get('temperature', config.openai_temperature),
+                "temperature": generation_config.get('temperature', self._temperature),
             }
             return kwargs
 
@@ -1064,12 +1111,12 @@ class GeminiAnalyzer:
 | 筹码状态 | {chip.get('chip_status', '未知')} | |
 """
         
-        # 添加趋势分析结果（基于交易理念的预判）
+        # 添加趋势分析 + MACD + RSI（技术分析师数据）
         if 'trend_analysis' in context:
             trend = context['trend_analysis']
             bias_warning = "🚨 超过5%，严禁追高！" if trend.get('bias_ma5', 0) > 5 else "✅ 安全范围"
             prompt += f"""
-### 趋势分析预判（基于交易理念）
+### 趋势分析（技术分析师）
 | 指标 | 数值 | 判定 |
 |------|------|------|
 | 趋势状态 | {trend.get('trend_status', '未知')} | |
@@ -1077,11 +1124,37 @@ class GeminiAnalyzer:
 | 趋势强度 | {trend.get('trend_strength', 0)}/100 | |
 | **乖离率(MA5)** | **{trend.get('bias_ma5', 0):+.2f}%** | {bias_warning} |
 | 乖离率(MA10) | {trend.get('bias_ma10', 0):+.2f}% | |
+| 乖离率(MA20) | {trend.get('bias_ma20', 0):+.2f}% | |
 | 量能状态 | {trend.get('volume_status', '未知')} | {trend.get('volume_trend', '')} |
-| 系统信号 | {trend.get('buy_signal', '未知')} | |
-| 系统评分 | {trend.get('signal_score', 0)}/100 | |
+| 5日量比 | {trend.get('volume_ratio_5d', 'N/A')} | |
 
-#### 系统分析理由
+### MACD 指标（趋势确认）
+| 指标 | 数值 | 状态 |
+|------|------|------|
+| DIF (快线) | {trend.get('macd_dif', 'N/A')} | |
+| DEA (慢线) | {trend.get('macd_dea', 'N/A')} | |
+| MACD 柱 | {trend.get('macd_bar', 'N/A')} | {'红柱' if trend.get('macd_bar', 0) > 0 else '绿柱'} |
+| **MACD 状态** | **{trend.get('macd_status', '未知')}** | {trend.get('macd_signal', '')} |
+
+### RSI 指标（超买超卖）
+| 周期 | 数值 | 区间 |
+|------|------|------|
+| RSI(6) 短期 | {trend.get('rsi_6', 'N/A')} | |
+| RSI(12) 中期 | {trend.get('rsi_12', 'N/A')} | |
+| RSI(24) 长期 | {trend.get('rsi_24', 'N/A')} | |
+| **RSI 状态** | **{trend.get('rsi_status', '未知')}** | {trend.get('rsi_signal', '')} |
+
+### 支撑与压力位
+| 类型 | 价位 |
+|------|------|
+| 支撑位 | {', '.join(str(round(x, 2)) for x in trend.get('support_levels', [])) or 'N/A'} |
+| 压力位 | {', '.join(str(round(x, 2)) for x in trend.get('resistance_levels', [])) or 'N/A'} |
+| MA5支撑 | {'是' if trend.get('support_ma5') else '否'} |
+| MA10支撑 | {'是' if trend.get('support_ma10') else '否'} |
+
+#### 系统综合信号
+- 信号: {trend.get('buy_signal', '未知')} | 评分: {trend.get('signal_score', 0)}/100
+
 **买入理由**：
 {chr(10).join('- ' + r for r in trend.get('signal_reasons', ['无'])) if trend.get('signal_reasons') else '- 无'}
 
@@ -1089,6 +1162,19 @@ class GeminiAnalyzer:
 {chr(10).join('- ' + r for r in trend.get('risk_factors', ['无'])) if trend.get('risk_factors') else '- 无'}
 """
         
+        # 近期走势数据（帮助 AI 识别 K 线形态）
+        recent_days = context.get('recent_days', [])
+        if recent_days and len(recent_days) >= 3:
+            prompt += """
+### 近期走势（最近交易日）
+| 日期 | 收盘价 | 涨跌幅 | 最高 | 最低 |
+|------|--------|--------|------|------|
+"""
+            for d in recent_days[:10]:
+                pct = d.get('pct_chg')
+                pct_str = f"{pct:+.2f}%" if pct is not None else "N/A"
+                prompt += f"| {d.get('date', '')} | {d.get('close', 'N/A')} | {pct_str} | {d.get('high', 'N/A')} | {d.get('low', 'N/A')} |\n"
+
         # 添加昨日对比数据
         if 'yesterday' in context:
             volume_change = context.get('volume_change_ratio', 'N/A')
@@ -1135,26 +1221,38 @@ class GeminiAnalyzer:
 
 ## ✅ 分析任务
 
-请为 **{stock_name}({code})** 生成【决策仪表盘】，严格按照 JSON 格式输出。
+请四位分析师（技术/基本面/情绪/新闻）分别独立研判，然后综合输出 **{stock_name}({code})** 的【决策仪表盘】。
 
-### ⚠️ 重要：股票名称确认
-如果上方显示的股票名称为"股票{code}"或不正确，请在分析开头**明确输出该股票的正确中文全称**。
+### 股票名称确认
+如果上方显示的股票名称为"股票{code}"或不正确，请输出正确的中文全称。
 
-### 重点关注（必须明确回答）：
-1. ❓ 是否满足 MA5>MA10>MA20 多头排列？
-2. ❓ 当前乖离率是否在安全范围内（<5%）？—— 超过5%必须标注"严禁追高"
-3. ❓ 量能是否配合（缩量回调/放量突破）？
-4. ❓ 筹码结构是否健康？
-5. ❓ 消息面有无重大利空？（减持、处罚、业绩变脸等）
+### 四维分析师必须回答：
 
-### 决策仪表盘要求：
-- **股票名称**：必须输出正确的中文全称（如"贵州茅台"而非"股票600519"）
+**技术分析师**：
+1. 均线是否多头排列？MACD 金叉还是死叉？
+2. RSI 是否超买/超卖？当前乖离率是否安全（<5%）？
+3. 量价关系如何？支撑压力位在哪？
+
+**基本面分析师**：
+4. PE/PB 是否合理？业绩增长预期？
+5. 公司有无财务风险信号？行业地位如何？
+
+**情绪分析师**：
+6. 筹码结构是否健康？换手率/量比有无异常？
+7. 市场情绪偏向贪婪还是恐慌？
+
+**新闻分析师**：
+8. 近期有无重大利好/利空？（减持、处罚、业绩变脸、政策利好）
+9. 行业/宏观环境有何影响？
+
+### 决策仪表盘输出要求：
+- **综合评分**：四维加权（技术35%+基本面25%+情绪20%+新闻20%）
 - **核心结论**：一句话说清该买/该卖/该等
-- **持仓分类建议**：空仓者怎么做 vs 持仓者怎么做
-- **具体狙击点位**：买入价、止损价、目标价（精确到分）
-- **检查清单**：每项用 ✅/⚠️/❌ 标记
+- **精确点位**：买入价、止损价、目标价（精确到分）
+- **检查清单**：8项，覆盖四个维度，用 ✅/⚠️/❌ 标记
+- **analysis_summary**：150字，融合四位分析师观点的综合研判
 
-请输出完整的 JSON 格式决策仪表盘。"""
+请输出完整 JSON 格式决策仪表盘。"""
         
         return prompt
     

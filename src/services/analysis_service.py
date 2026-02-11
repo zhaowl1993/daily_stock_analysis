@@ -36,7 +36,8 @@ class AnalysisService:
         report_type: str = "detailed",
         force_refresh: bool = False,
         query_id: Optional[str] = None,
-        send_notification: bool = True
+        send_notification: bool = True,
+        model_name: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         执行股票分析
@@ -47,6 +48,7 @@ class AnalysisService:
             force_refresh: 是否强制刷新
             query_id: 查询 ID（可选）
             send_notification: 是否发送通知（API 触发默认发送）
+            model_name: AI provider to force ("openai" or "gemini", None=auto)
             
         Returns:
             分析结果字典，包含:
@@ -67,11 +69,19 @@ class AnalysisService:
             # 获取配置
             config = get_config()
             
-            # 创建分析流水线
+            # Create pipeline with optional forced provider
+            if model_name:
+                pipeline = StockAnalysisPipeline.create_with_provider(
+                    force_provider=model_name,
+                    config=config,
+                    query_id=query_id,
+                    query_source="api",
+                )
+            else:
             pipeline = StockAnalysisPipeline(
                 config=config,
                 query_id=query_id,
-                query_source="api"
+                    query_source="api",
             )
             
             # 确定报告类型
@@ -85,6 +95,11 @@ class AnalysisService:
                 report_type=rt
             )
             
+            # Normalize model_name to provider key ("openai"/"gemini")
+            # so the frontend can match it consistently.
+            if result and model_name:
+                result.model_name = model_name
+
             if result is None:
                 logger.warning(f"分析股票 {stock_code} 返回空结果")
                 return None
@@ -128,6 +143,7 @@ class AnalysisService:
                 "report_type": "detailed",
                 "current_price": result.current_price,
                 "change_pct": result.change_pct,
+                "model_name": getattr(result, 'model_name', None),
             },
             "summary": {
                 "analysis_summary": result.analysis_summary,

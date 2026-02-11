@@ -36,6 +36,7 @@ from sqlalchemy import (
     select,
     and_,
     desc,
+    text,
 )
 from sqlalchemy.orm import (
     declarative_base,
@@ -194,6 +195,9 @@ class AnalysisHistory(Base):
     name = Column(String(50))
     report_type = Column(String(16), index=True)
 
+    # AI model metadata
+    model_name = Column(String(64), index=True)  # AI model used (e.g. "gemini-2.5-flash", "deepseek-chat")
+
     # 核心结论
     sentiment_score = Column(Integer)
     operation_advice = Column(String(20))
@@ -225,6 +229,7 @@ class AnalysisHistory(Base):
             'code': self.code,
             'name': self.name,
             'report_type': self.report_type,
+            'model_name': self.model_name,
             'sentiment_score': self.sentiment_score,
             'operation_advice': self.operation_advice,
             'trend_prediction': self.trend_prediction,
@@ -414,12 +419,36 @@ class DatabaseManager:
         # 创建所有表
         Base.metadata.create_all(self._engine)
 
+        # Lightweight schema migration: add columns that may not exist in older DBs
+        self._migrate_schema()
+
         self._initialized = True
         logger.info(f"数据库初始化完成: {db_url}")
 
         # 注册退出钩子，确保程序退出时关闭数据库连接
         atexit.register(DatabaseManager._cleanup_engine, self._engine)
     
+    def _migrate_schema(self) -> None:
+        """
+        Lightweight schema migration for SQLite.
+        Adds missing columns to existing tables. Safe to run multiple times.
+        """
+        migrations = [
+            ("analysis_history", "model_name", "VARCHAR(64)"),
+        ]
+        with self._engine.connect() as conn:
+            for table, column, col_type in migrations:
+                try:
+                    # Check if column already exists
+                    result = conn.execute(text(f"PRAGMA table_info({table})"))
+                    existing_cols = {row[1] for row in result}
+                    if column not in existing_cols:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                        conn.commit()
+                        logger.info(f"Schema migration: added {table}.{column}")
+                except Exception as e:
+                    logger.debug(f"Schema migration skipped ({table}.{column}): {e}")
+
     @classmethod
     def get_instance(cls) -> 'DatabaseManager':
         """获取单例实例"""
@@ -710,6 +739,7 @@ class DatabaseManager:
             code=result.code,
             name=result.name,
             report_type=report_type,
+            model_name=getattr(result, 'model_name', None),
             sentiment_score=result.sentiment_score,
             operation_advice=result.operation_advice,
             trend_prediction=result.trend_prediction,
@@ -950,21 +980,15 @@ class DatabaseManager:
     ) -> Optional[Dict[str, Any]]:
         """
         获取分析所需的上下文数据
-        
-        返回今日数据 + 昨日数据的对比信息
-        
-        Args:
-            code: 股票代码
-            target_date: 目标日期（默认今天）
-            
-        Returns:
-            包含今日数据、昨日对比等信息的字典
+
+        Returns today + yesterday + recent 10-day history + raw_data list
+        for trend analysis and pattern recognition.
         """
         if target_date is None:
             target_date = date.today()
         
-        # 获取最近2天数据
-        recent_data = self.get_latest_data(code, days=2)
+        # Fetch last 30 trading days for technical indicator calculation
+        recent_data = self.get_latest_data(code, days=30)
         
         if not recent_data:
             logger.warning(f"未找到 {code} 的数据")
@@ -973,7 +997,7 @@ class DatabaseManager:
         today_data = recent_data[0]
         yesterday_data = recent_data[1] if len(recent_data) > 1 else None
         
-        context = {
+        context: Dict[str, Any] = {
             'code': code,
             'date': today_data.date.isoformat(),
             'today': today_data.to_dict(),
@@ -982,7 +1006,6 @@ class DatabaseManager:
         if yesterday_data:
             context['yesterday'] = yesterday_data.to_dict()
             
-            # 计算相比昨日的变化
             if yesterday_data.volume and yesterday_data.volume > 0:
                 context['volume_change_ratio'] = round(
                     today_data.volume / yesterday_data.volume, 2
@@ -993,8 +1016,25 @@ class DatabaseManager:
                     (today_data.close - yesterday_data.close) / yesterday_data.close * 100, 2
                 )
             
-            # 均线形态判断
             context['ma_status'] = self._analyze_ma_status(today_data)
+
+        # Recent 10-day summary for AI to see short-term trends
+        recent_10 = recent_data[:10]
+        context['recent_days'] = [
+            {
+                'date': d.date.isoformat(),
+                'close': d.close,
+                'pct_chg': d.pct_chg,
+                'volume': d.volume,
+                'high': d.high,
+                'low': d.low,
+            }
+            for d in recent_10
+            if d.close is not None
+        ]
+
+        # Full raw_data list (for StockTrendAnalyzer to compute MACD/RSI)
+        context['raw_data'] = [d.to_dict() for d in reversed(recent_data)]
         
         return context
     
@@ -1084,47 +1124,45 @@ class DatabaseManager:
     @staticmethod
     def _parse_sniper_value(value: Any) -> Optional[float]:
         """
-        解析狙击点位数值
+        Parse a sniper point value into a float price.
+
+        Handles multiple formats:
+        - Pure number: 1468, 1468.5
+        - "1468元（MA10）附近。理由：..."  (number before 元)
+        - "理想买入：1468元"  (colon then number then 元)
+        - "1380元（跌破MA20约2.5%）"  (take first number before 元)
         """
         if value is None:
             return None
         if isinstance(value, (int, float)):
             return float(value)
 
-        text = str(value).replace(',', '').strip()
+        text = str(value).replace(',', '').replace('，', '').strip()
         if not text:
             return None
 
-        # 尝试直接解析纯数字字符串
+        # Try direct float parse
         try:
             return float(text)
         except ValueError:
             pass
 
-        # 优先截取 "：" 到 "元" 之间的价格，避免误提取 MA5/MA10 等技术指标数字
-        colon_pos = max(text.rfind("："), text.rfind(":"))
-        yuan_pos = text.find("元", colon_pos + 1 if colon_pos != -1 else 0)
-        if yuan_pos != -1:
-            segment_start = colon_pos + 1 if colon_pos != -1 else 0
-            segment = text[segment_start:yuan_pos]
-            
-            # 使用 finditer 并过滤掉 MA 开头的数字
-            matches = list(re.finditer(r"-?\d+(?:\.\d+)?", segment))
-            valid_numbers = []
-            for m in matches:
-                # 检查前面是否是 "MA" (忽略大小写)
-                start_idx = m.start()
-                if start_idx >= 2:
-                    prefix = segment[start_idx-2:start_idx].upper()
-                    if prefix == "MA":
-                        continue
-                valid_numbers.append(m.group())
-            
-            if valid_numbers:
-                try:
-                    return float(valid_numbers[-1])
-                except ValueError:
-                    pass
+        # Strategy: find ALL "number + 元" patterns, take the first one
+        # This handles "1468元" regardless of where colons appear
+        yuan_matches = list(re.finditer(r'(-?\d+(?:\.\d+)?)元', text))
+        if yuan_matches:
+            try:
+                return float(yuan_matches[0].group(1))
+            except ValueError:
+                pass
+
+        # Fallback: extract the first number > 1 (skip percentages)
+        all_numbers = re.findall(r'-?\d+(?:\.\d+)?', text)
+        for n in all_numbers:
+            val = float(n)
+            if val > 1:  # skip percentages like 2.5
+                return val
+
         return None
 
     def _extract_sniper_points(self, result: Any) -> Dict[str, Optional[float]]:
