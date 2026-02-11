@@ -4,10 +4,9 @@
 services:
   - type: web
     name: daily-stock-analysis
-    runtime: docker
-    dockerfilePath: ./docker/Dockerfile
-    dockerContext: .
+    runtime: python
     plan: free
+    buildCommand: "chmod +x scripts/render-build.sh && ./scripts/render-build.sh"
     startCommand: "python main.py --serve-only --host 0.0.0.0 --port 10000"
     healthCheckPath: /api/health
     autoDeploy: true
@@ -20,11 +19,13 @@ services:
       - key: API_PORT
         value: "10000"
       - key: DATABASE_PATH
-        value: "/app/data/stock_analysis.db"
+        value: "./data/stock_analysis.db"
       - key: LOG_DIR
-        value: "/app/logs"
+        value: "./logs"
       - key: LOG_LEVEL
         value: "INFO"
+      - key: PYTHON_VERSION
+        value: "3.11.12"
 
       # ==============================================
       # Default stock list (comma-separated)
