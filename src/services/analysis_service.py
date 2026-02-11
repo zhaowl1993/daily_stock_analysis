@@ -78,11 +78,11 @@ class AnalysisService:
                     query_source="api",
                 )
             else:
-            pipeline = StockAnalysisPipeline(
-                config=config,
-                query_id=query_id,
+                pipeline = StockAnalysisPipeline(
+                    config=config,
+                    query_id=query_id,
                     query_source="api",
-            )
+                )
             
             # 确定报告类型
             rt = ReportType.FULL if report_type == "detailed" else ReportType.SIMPLE

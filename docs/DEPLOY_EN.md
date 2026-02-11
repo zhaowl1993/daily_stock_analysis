@@ -6,7 +6,7 @@ This document explains how to deploy the AI Stock Analysis System to a server.
 
 | Option | Pros | Cons | Recommended For |
 |------|------|------|----------|
-| **Docker Compose** ‚≠ê | One-click deploy, isolated environment, easy migration, easy upgrade | Requires Docker installation | **Recommended**: Most scenarios |
+| **Docker Compose** ‚≠?| One-click deploy, isolated environment, easy migration, easy upgrade | Requires Docker installation | **Recommended**: Most scenarios |
 | **Direct Deployment** | Simple, no extra dependencies | Environment dependencies, migration difficulties | Temporary testing |
 | **Systemd Service** | System-level management, auto-start on boot | Complex configuration | Long-term stable operation |
 | **Supervisor** | Process management, auto-restart | Requires additional installation | Multi-process management |
@@ -312,10 +312,10 @@ docker-compose -f ./docker/docker-compose.yml up -d
 **The simplest option!** No server needed, leverages GitHub's free compute resources.
 
 ### Advantages
-- ‚úÖ **Completely free** (2000 minutes/month)
-- ‚úÖ **No server needed**
-- ‚úÖ **Auto-scheduled execution**
-- ‚úÖ **Zero maintenance cost**
+- ‚ú?**Completely free** (2000 minutes/month)
+- ‚ú?**No server needed**
+- ‚ú?**Auto-scheduled execution**
+- ‚ú?**Zero maintenance cost**
 
 ### Limitations
 - ‚ö†Ô∏è Stateless (fresh environment each run)
@@ -342,13 +342,13 @@ git push -u origin main
 
 #### 2. Configure Secrets (Important!)
 
-Go to repo page ‚Üí **Settings** ‚Üí **Secrets and variables** ‚Üí **Actions** ‚Üí **New repository secret**
+Go to repo page ‚Ü?**Settings** ‚Ü?**Secrets and variables** ‚Ü?**Actions** ‚Ü?**New repository secret**
 
 Add these Secrets:
 
 | Secret Name | Description | Required |
 |------------|------|------|
-| `GEMINI_API_KEY` | Gemini AI API Key | ‚úÖ |
+| `GEMINI_API_KEY` | Gemini AI API Key | ‚ú?|
 | `WECHAT_WEBHOOK_URL` | WeChat Work Bot Webhook | Optional* |
 | `FEISHU_WEBHOOK_URL` | Feishu Bot Webhook | Optional* |
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot Token | Optional* |
@@ -358,7 +358,7 @@ Add these Secrets:
 | `EMAIL_PASSWORD` | Email authorization code | Optional* |
 | `SERVERCHAN3_SENDKEY` | ServerChan v3 Sendkey | Optional* |
 | `CUSTOM_WEBHOOK_URLS` | Custom Webhook (comma-separated for multiple) | Optional* |
-| `STOCK_LIST` | Watchlist, e.g., `600519,300750` | ‚úÖ |
+| `STOCK_LIST` | Watchlist, e.g., `600519,300750` | ‚ú?|
 | `TAVILY_API_KEYS` | Tavily Search API Key | Recommended |
 | `SERPAPI_API_KEYS` | SerpAPI Key | Optional |
 | `TUSHARE_TOKEN` | Tushare Token | Optional |
@@ -378,7 +378,7 @@ git push
 
 #### 4. Manual Test Run
 
-1. Go to repo page ‚Üí **Actions** tab
+1. Go to repo page ‚Ü?**Actions** tab
 2. Select **"Daily Stock Analysis"** workflow
 3. Click **"Run workflow"** button
 4. Select run mode:
@@ -429,7 +429,7 @@ git push
 A: GitHub Actions scheduled tasks may have 5-15 minute delays, and only trigger when repo has activity. Long periods without commits may cause workflow to be disabled.
 
 **Q: How to view historical reports?**
-A: Actions ‚Üí Select run record ‚Üí Artifacts ‚Üí Download `analysis-reports-xxx`
+A: Actions ‚Ü?Select run record ‚Ü?Artifacts ‚Ü?Download `analysis-reports-xxx`
 
 **Q: Is the free quota enough?**
 A: Each run takes about 2-5 minutes, 22 workdays per month = 44-110 minutes, well below the 2000 minute limit.

@@ -20,7 +20,7 @@ This document compiles common issues encountered by users and their solutions.
    ```
    This prioritizes Yahoo Finance data source for US stock data
 
-> Related Issue: [#153](https://github.com/ZhuLinsen/daily_stock_analysis/issues/153)
+> Related Issue: [#153](https://github.com/zhaowl1993/daily_stock_analysis/issues/153)
 
 ---
 
@@ -38,7 +38,7 @@ This document compiles common issues encountered by users and their solutions.
    ```
 3. System has built-in 5-day average volume calculation as fallback
 
-> Related Issue: [#155](https://github.com/ZhuLinsen/daily_stock_analysis/issues/155)
+> Related Issue: [#155](https://github.com/zhaowl1993/daily_stock_analysis/issues/155)
 
 ---
 
@@ -75,7 +75,7 @@ This document compiles common issues encountered by users and their solutions.
 **Cause**: GitHub distinguishes `Secrets` (encrypted) and `Variables` (regular variables), wrong configuration location causes read failure.
 
 **Solution**:
-1. Go to repo `Settings` â†’ `Secrets and variables` â†’ `Actions`
+1. Go to repo `Settings` â†?`Secrets and variables` â†?`Actions`
 2. **Secrets** (click `New repository secret`): Store sensitive information
    - `GEMINI_API_KEY`
    - `OPENAI_API_KEY`
@@ -249,7 +249,7 @@ python main.py --market-only
 
 If the above content doesn't solve your issue, welcome to:
 1. Check [Complete Configuration Guide](full-guide_EN.md)
-2. Search or submit [GitHub Issue](https://github.com/ZhuLinsen/daily_stock_analysis/issues)
+2. Search or submit [GitHub Issue](https://github.com/zhaowl1993/daily_stock_analysis/issues)
 3. Check [Changelog](CHANGELOG.md) for latest fixes
 
 ---

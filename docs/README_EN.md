@@ -2,8 +2,8 @@
 
 # AI Stock Analysis System
 
-[![GitHub stars](https://img.shields.io/github/stars/ZhuLinsen/daily_stock_analysis?style=social)](https://github.com/ZhuLinsen/daily_stock_analysis/stargazers)
-[![CI](https://github.com/ZhuLinsen/daily_stock_analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/ZhuLinsen/daily_stock_analysis/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/zhaowl1993/daily_stock_analysis?style=social)](https://github.com/zhaowl1993/daily_stock_analysis/stargazers)
+[![CI](https://github.com/zhaowl1993/daily_stock_analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/zhaowl1993/daily_stock_analysis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Ready-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
@@ -11,7 +11,7 @@
 
 **AI-powered stock analysis system for A-shares / Hong Kong / US stocks**
 
-Analyze your watchlist daily ‚Üí generate a decision dashboard ‚Üí push to multiple channels (Telegram/Discord/Email/WeChat Work/Feishu)
+Analyze your watchlist daily ‚Ü?generate a decision dashboard ‚Ü?push to multiple channels (Telegram/Discord/Email/WeChat Work/Feishu)
 
 **Zero-cost deployment** ¬∑ Runs on GitHub Actions ¬∑ No server required
 
@@ -30,7 +30,7 @@ English | [ÁÆÄ‰Ωì‰∏≠Êñá](../README.md) | [ÁπÅÈ´î‰∏≠Êñá](README_CHT.md)
 </div>
 <br>
 
-## ‚ú® Key Features
+## ‚ú?Key Features
 
 | Module | Feature | Description |
 |--------|---------|-------------|
@@ -71,13 +71,13 @@ Click the `Fork` button in the upper right corner
 
 #### 2. Configure Secrets
 
-Go to your forked repo ‚Üí `Settings` ‚Üí `Secrets and variables` ‚Üí `Actions` ‚Üí `New repository secret`
+Go to your forked repo ‚Ü?`Settings` ‚Ü?`Secrets and variables` ‚Ü?`Actions` ‚Ü?`New repository secret`
 
 **AI Model Configuration (Choose one)**
 
 | Secret Name | Description | Required |
 |------------|------|:----:|
-| `GEMINI_API_KEY` | Get free API key from [Google AI Studio](https://aistudio.google.com/) | ‚úÖ* |
+| `GEMINI_API_KEY` | Get free API key from [Google AI Studio](https://aistudio.google.com/) | ‚ú? |
 | `OPENAI_API_KEY` | OpenAI-compatible API Key (supports DeepSeek, Qwen, etc.) | Optional |
 | `OPENAI_BASE_URL` | OpenAI-compatible API endpoint (e.g., `https://api.deepseek.com/v1`) | Optional |
 | `OPENAI_MODEL` | Model name (e.g., `deepseek-chat`) | Optional |
@@ -116,7 +116,7 @@ Go to your forked repo ‚Üí `Settings` ‚Üí `Secrets and variables` ‚Üí `Actions` 
 
 | Secret Name | Description | Required |
 |------------|------|:----:|
-| `STOCK_LIST` | Watchlist codes, e.g., `600519,AAPL,hk00700` | ‚úÖ |
+| `STOCK_LIST` | Watchlist codes, e.g., `600519,AAPL,hk00700` | ‚ú?|
 | `TAVILY_API_KEYS` | [Tavily](https://tavily.com/) Search API (for news) | Recommended |
 | `BRAVE_API_KEYS` | [Brave Search](https://brave.com/search/api/) API (privacy-focused, US stocks optimized) | Optional |
 | `SERPAPI_API_KEYS` | [SerpAPI](https://serpapi.com/baidu-search-api?utm_source=github_daily_stock_analysis) Backup search | Optional |
@@ -134,11 +134,11 @@ Go to your forked repo ‚Üí `Settings` ‚Üí `Secrets and variables` ‚Üí `Actions` 
 
 #### 3. Enable Actions
 
-Go to `Actions` tab ‚Üí Click `I understand my workflows, go ahead and enable them`
+Go to `Actions` tab ‚Ü?Click `I understand my workflows, go ahead and enable them`
 
 #### 4. Manual Test
 
-`Actions` ‚Üí `Daily Stock Analysis` ‚Üí `Run workflow` ‚Üí Select mode ‚Üí `Run workflow`
+`Actions` ‚Ü?`Daily Stock Analysis` ‚Ü?`Run workflow` ‚Ü?Select mode ‚Ü?`Run workflow`
 
 #### 5. Done!
 
@@ -154,7 +154,7 @@ The system will:
 #### 1. Clone Repository
 
 ```bash
-git clone https://github.com/ZhuLinsen/daily_stock_analysis.git
+git clone https://github.com/zhaowl1993/daily_stock_analysis.git
 cd daily_stock_analysis
 ```
 
@@ -229,7 +229,7 @@ python main.py --market-review
 
 ### 1. Telegram (Recommended)
 
-1. Talk to [@BotFather](https://t.me/BotFather) ‚Üí `/newbot` ‚Üí get Bot Token
+1. Talk to [@BotFather](https://t.me/BotFather) ‚Ü?`/newbot` ‚Ü?get Bot Token
 2. Get Chat ID: send a message to [@userinfobot](https://t.me/userinfobot)
 3. Configure:
   ```bash
@@ -307,7 +307,7 @@ PUSHPLUS_TOKEN=your_token_here
 
 > **One-sentence Decision**: Strong technical setup with positive catalyst, ideal entry point
 
-‚è∞ **Time Sensitivity**: Within this week
+‚è?**Time Sensitivity**: Within this week
 
 | Position | Action |
 |----------|--------|
@@ -316,7 +316,7 @@ PUSHPLUS_TOKEN=your_token_here
 
 ### üìä Data Perspective
 
-**MA Alignment**: MA5>MA10>MA20 | Bull Trend: ‚úÖ Yes | Trend Strength: 85/100
+**MA Alignment**: MA5>MA10>MA20 | Bull Trend: ‚ú?Yes | Trend Strength: 85/100
 
 | Price Metrics | Value |
 |--------------|-------|
@@ -324,7 +324,7 @@ PUSHPLUS_TOKEN=your_token_here
 | MA5 | $183.20 |
 | MA10 | $180.50 |
 | MA20 | $177.80 |
-| Bias (MA5) | +1.26% ‚úÖ Safe |
+| Bias (MA5) | +1.26% ‚ú?Safe |
 | Support | $183.20 |
 | Resistance | $190.00 |
 
@@ -346,11 +346,11 @@ PUSHPLUS_TOKEN=your_token_here
 - Entry Plan: Enter in 2-3 batches
 - Risk Control: Strict stop loss at $177
 
-**‚úÖ Checklist**
+**‚ú?Checklist**
 
-- ‚úÖ Bull trend confirmed
-- ‚úÖ Price near MA5 support
-- ‚úÖ Volume confirms trend
+- ‚ú?Bull trend confirmed
+- ‚ú?Price near MA5 support
+- ‚ú?Volume confirms trend
 - ‚ö†Ô∏è Monitor market volatility
 
 ---
@@ -433,7 +433,7 @@ Enable the FastAPI service for configuration management and triggering analysis 
 
 ---
 
-## ‚òï Support the Project
+## ‚ò?Support the Project
 
 <div align="center">
   <a href="https://ko-fi.com/mumu157" target="_blank">
@@ -465,15 +465,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## ‚≠ê Star History
-**Made with ‚ù§Ô∏è by AI enthusiasts | Star ‚≠ê this repo if you find it useful!**
+## ‚≠?Star History
+**Made with ‚ù§Ô∏è by AI enthusiasts | Star ‚≠?this repo if you find it useful!**
 
 
-<a href="https://star-history.com/#ZhuLinsen/daily_stock_analysis&Date">
+<a href="https://star-history.com/#zhaowl1993/daily_stock_analysis&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ZhuLinsen/daily_stock_analysis&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ZhuLinsen/daily_stock_analysis&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ZhuLinsen/daily_stock_analysis&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=zhaowl1993/daily_stock_analysis&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zhaowl1993/daily_stock_analysis&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=zhaowl1993/daily_stock_analysis&type=Date" />
  </picture>
 </a>
 
@@ -501,7 +501,7 @@ The developers of this tool are not liable for any financial losses resulting fr
 
 ## üìû Contact
 
-- GitHub Issues: [Report bugs or request features](https://github.com/ZhuLinsen/daily_stock_analysis/issues)
-- Discussions: [Join discussions](https://github.com/ZhuLinsen/daily_stock_analysis/discussions)
+- GitHub Issues: [Report bugs or request features](https://github.com/zhaowl1993/daily_stock_analysis/issues)
+- Discussions: [Join discussions](https://github.com/zhaowl1993/daily_stock_analysis/discussions)
 
 ----

@@ -1,5 +1,5 @@
 # Render.com Blueprint – Daily Stock Analysis
-# Deploy: https://render.com/deploy?repo=https://github.com/ZhuLinsen/daily_stock_analysis
+# Deploy: https://render.com/deploy?repo=https://github.com/zhaowl1993/daily_stock_analysis
 
 services:
   - type: web

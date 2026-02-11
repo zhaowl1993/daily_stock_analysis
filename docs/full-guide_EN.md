@@ -10,10 +10,10 @@ This document contains the complete configuration guide for the AI Stock Analysi
 daily_stock_analysis/
 ├── main.py              # Main entry point
 ├── src/                 # Core business logic
-│   ├── analyzer.py      # AI analyzer
-│   ├── config.py        # Configuration management
-│   ├── notification.py  # Message push notifications
-│   └── ...
+�?  ├── analyzer.py      # AI analyzer
+�?  ├── config.py        # Configuration management
+�?  ├── notification.py  # Message push notifications
+�?  └── ...
 ├── data_provider/       # Multi-source data adapters
 ├── bot/                 # Bot interaction module
 ├── api/                 # FastAPI backend service
@@ -47,7 +47,7 @@ Click the `Fork` button in the upper right corner.
 
 ### 2. Configure Secrets
 
-Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
+Go to your forked repo �?`Settings` �?`Secrets and variables` �?`Actions` �?`New repository secret`
 
 <div align="center">
   <img src="../sources/secret_config.png" alt="GitHub Secrets Configuration" width="600">
@@ -57,7 +57,7 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 
 | Secret Name | Description | Required |
 |------------|------|:----:|
-| `GEMINI_API_KEY` | Get free key from [Google AI Studio](https://aistudio.google.com/) | ✅* |
+| `GEMINI_API_KEY` | Get free key from [Google AI Studio](https://aistudio.google.com/) | �? |
 | `OPENAI_API_KEY` | OpenAI-compatible API Key (supports DeepSeek, Qwen, etc.) | Optional |
 | `OPENAI_BASE_URL` | OpenAI-compatible API endpoint (e.g., `https://api.deepseek.com/v1`) | Optional |
 | `OPENAI_MODEL` | Model name (e.g., `deepseek-chat`) | Optional |
@@ -98,13 +98,13 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 
 | Secret Name | Description | Required |
 |------------|------|:----:|
-| `STOCK_LIST` | Watchlist codes, e.g., `600519,300750,002594` | ✅ |
+| `STOCK_LIST` | Watchlist codes, e.g., `600519,300750,002594` | �?|
 | `TAVILY_API_KEYS` | [Tavily](https://tavily.com/) Search API (for news search) | Recommended |
 | `BOCHA_API_KEYS` | [Bocha Search](https://open.bocha.cn/) Web Search API (Chinese search optimized, supports AI summaries, multiple keys comma-separated) | Optional |
 | `SERPAPI_API_KEYS` | [SerpAPI](https://serpapi.com/baidu-search-api?utm_source=github_daily_stock_analysis) Backup search | Optional |
 | `TUSHARE_TOKEN` | [Tushare Pro](https://tushare.pro/weborder/#/login?reg=834638) Token | Optional |
 
-#### ✅ Minimum Configuration Example
+#### �?Minimum Configuration Example
 
 To get started quickly, you need at minimum:
 
@@ -141,7 +141,7 @@ Default schedule: Every weekday at **18:00 (Beijing Time)** automatic execution.
 
 | Variable | Description | Default | Required |
 |--------|------|--------|:----:|
-| `GEMINI_API_KEY` | Google Gemini API Key | - | ✅* |
+| `GEMINI_API_KEY` | Google Gemini API Key | - | �? |
 | `GEMINI_MODEL` | Primary model name | `gemini-3-flash-preview` | No |
 | `GEMINI_MODEL_FALLBACK` | Fallback model | `gemini-2.5-flash` | No |
 | `OPENAI_API_KEY` | OpenAI-compatible API Key | - | Optional |
@@ -219,7 +219,7 @@ Default schedule: Every weekday at **18:00 (Beijing Time)** automatic execution.
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/ZhuLinsen/daily_stock_analysis.git
+git clone https://github.com/zhaowl1993/daily_stock_analysis.git
 cd daily_stock_analysis
 
 # 2. Configure environment variables
@@ -681,4 +681,4 @@ A: Check if Actions is enabled, and if cron expression is correct (note it's UTC
 
 ---
 
-For more questions, please [submit an Issue](https://github.com/ZhuLinsen/daily_stock_analysis/issues)
+For more questions, please [submit an Issue](https://github.com/zhaowl1993/daily_stock_analysis/issues)
