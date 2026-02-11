@@ -516,7 +516,9 @@ def _extract_strategy_from_record(record) -> ReportStrategy:
             try:
                 import json as _json
                 raw_data = _json.loads(raw_text) if isinstance(raw_text, str) else raw_text
-                sp = raw_data.get("dashboard", {}).get("battle_plan", {}).get("sniper_points", {})
+                _dashboard = (raw_data or {}).get("dashboard") or {}
+                _battle = _dashboard.get("battle_plan") or {}
+                sp = _battle.get("sniper_points") or {}
                 if sp:
                     ideal_buy = sp.get("ideal_buy") or ideal_buy
                     secondary_buy = sp.get("secondary_buy") or secondary_buy

@@ -214,7 +214,8 @@ def get_history_detail(
                     dashboard = _json.loads(raw_result_data).get("dashboard", {})
                 except Exception:
                     pass
-            sp = dashboard.get("battle_plan", {}).get("sniper_points", {})
+            sp = (dashboard or {}).get("battle_plan", {}) or {}
+            sp = sp.get("sniper_points", {}) or {}
             if sp:
                 ideal_buy = sp.get("ideal_buy") or ideal_buy
                 secondary_buy = sp.get("secondary_buy") or secondary_buy
